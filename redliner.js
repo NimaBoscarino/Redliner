@@ -74,6 +74,8 @@ L.Control.Redliner = L.Control.extend({
                 },
                 terminate: function() {
                     self.enableMapControls()
+                    self.stopDrawingMode()                  
+                    
                 }
             }
         ];
