@@ -36,13 +36,84 @@ L.Control.Redliner = L.Control.extend({
     },
     stopDrawingMode: function() {
         // save image from canvas...
-
+        this.saveDrawing()
         
         // augment old image...
 
         // remove and destroy drawingCanvas
         this.state.drawingCanvas.removeFrom(this._map)
         this.state.drawingCanvas = null
+    },
+    saveDrawing: function() {
+        // SAVING LOGIC
+        var canvas = this.state.drawingCanvas._container;
+        var context = this.state.drawingCanvas._ctx;
+        var canvasDrawing = canvas.toDataURL("data:image/png");
+        var imageBoundsXY = this.state.drawingCanvas._bounds;
+        var imageBoundsMinCoord = this._map.layerPointToLatLng(imageBoundsXY.min);
+        var imageBoundsMaxCoord = this._map.layerPointToLatLng(imageBoundsXY.max);
+        var imageBounds = [
+            [imageBoundsMinCoord.lat, imageBoundsMinCoord.lng],
+            [imageBoundsMaxCoord.lat, imageBoundsMaxCoord.lng]
+        ];
+
+        // merge previous...
+        if (this.state.comment.drawing) {
+            this.state.comment.drawing.removeFrom(this._map)
+            this.mergeWithOldDrawing(canvasDrawing, imageBounds)
+        } else {
+            this.state.comment.drawing = L.imageOverlay(canvasDrawing, imageBounds);
+            this.state.comment.drawing.addTo(this._map)
+        }
+    },
+    mergeWithOldDrawing: function(drawing, bounds) {
+        var self = this
+        var mergeCanvas = self.state.mergeCanvas
+        var oldDrawing = this.state.comment.drawing
+        //document.body.appendChild(canvas);
+        var mergeContext = mergeCanvas.getContext('2d')
+        var mapBounds = self._map.getBounds()
+
+        var newX_left = self._map.latLngToLayerPoint(mapBounds._southWest).x;
+        var newX_right = self._map.latLngToLayerPoint(mapBounds._northEast).x;
+        var newY_top = self._map.latLngToLayerPoint(mapBounds._northEast).y;
+        var newY_bottom = self._map.latLngToLayerPoint(mapBounds._southWest).y;
+        var oldX_left = self._map.latLngToLayerPoint(oldDrawing._bounds._southWest).x;
+        var oldX_right = self._map.latLngToLayerPoint(oldDrawing._bounds._northEast).x;
+        var oldY_top = self._map.latLngToLayerPoint(oldDrawing._bounds._northEast).y;
+        var oldY_bottom = self._map.latLngToLayerPoint(oldDrawing._bounds._southWest).y;
+
+        var leftMost = Math.min(newX_left, oldX_left);
+        var rightMost = Math.max(newX_right, oldX_right);
+        var topMost = Math.min(newY_top, oldY_top);
+        var bottomMost = Math.max(newY_bottom, oldY_bottom);
+
+        mergeCanvas.height = bottomMost - topMost;
+        mergeCanvas.width = rightMost - leftMost;
+
+        var oldImageToCanvas = new Image();
+        var newImageToCanvas = new Image();
+        var mergedDrawingLayer;
+        var newSouthWest = self._map.layerPointToLatLng([leftMost, bottomMost]);
+        var newNorthEast = self._map.layerPointToLatLng([rightMost, topMost]);
+
+        oldImageToCanvas.onload = function () {
+            mergeContext.drawImage(oldImageToCanvas, oldX_left - leftMost, oldY_top - topMost, oldX_right - oldX_left, oldY_bottom - oldY_top);
+            newImageToCanvas.src = drawing;
+        };
+        newImageToCanvas.onload = function () {
+            // to make the eraser tool work... I can deal with this later
+            // mergeContext.globalCompositeOperation = "destination-out";
+            // mergeContext.fillStyle = "white";
+            // mergeContext.fillRect(newX_left - leftMost, newY_top - topMost, newX_right - newX_left, newY_bottom - newY_top);
+            mergeContext.globalCompositeOperation = "source-over";
+            mergeContext.drawImage(newImageToCanvas, newX_left - leftMost, newY_top - topMost, newX_right - newX_left, newY_bottom - newY_top);
+            var mergedDrawing = mergeCanvas.toDataURL("data:image/png");
+            // comment.removeLayer(drawing);
+            self.state.comment.drawing = L.imageOverlay(mergedDrawing, [newSouthWest, newNorthEast]);
+            self._map.addLayer(self.state.comment.drawing);
+        };
+        oldImageToCanvas.src = this.state.comment.drawing._url;
     },
     drawLine: function (x, y, size, color) {
         var self = this
@@ -83,15 +154,14 @@ L.Control.Redliner = L.Control.extend({
             comment: null,
             stroke: null,
             lastX: -1,
-            lastY: -1
+            lastY: -1,
+            mergeCanvas: document.createElement('canvas')
         }        
         this.toolListeners = {
             redPenDown: function() {
-                console.log('pen down')
                 self.state.stroke = true
             },
             redPenUp: function() {
-                console.log('pen up')
                 self.state.stroke = false
                 self.state.lastX = -1
                 self.state.lastY = -1                
@@ -141,11 +211,7 @@ L.Control.Redliner = L.Control.extend({
     newComment: function() {
         this.state.comment = {
             name: 'Comment',
-            drawing: {
-                dataUrl: null,
-                latitude: null,
-                longitude: null
-            }
+            drawing: null
         }
     },
     setTool: function(toolName) {
@@ -159,12 +225,7 @@ L.Control.Redliner = L.Control.extend({
         tool.init()
         this.state.currentTool = tool
     }
-    
 });
-
-
-
-
 
 L.control.redliner = function (options) {
     return new L.Control.Redliner(options);
