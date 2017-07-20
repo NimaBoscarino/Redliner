@@ -39,9 +39,9 @@ L.Control.Redliner = L.Control.extend({
         // add listeners to canvas
         addListeners(this.state.drawingCanvas._container)
     },
-    stopDrawingMode: function() {
+    stopDrawingMode: function(cb) {
         // save image from canvas...
-        this.saveDrawing()
+        this.saveDrawing(cb)
         // remove and destroy drawingCanvas
         this.state.drawingCanvas.removeFrom(this._map)
         this.state.drawingCanvas = null
@@ -61,7 +61,7 @@ L.Control.Redliner = L.Control.extend({
 
         imageObj.src = image._image.src;
     },
-    saveDrawing: function() {
+    saveDrawing: function(cb) {
         var canvas = this.state.drawingCanvas._container;
         var context = this.state.drawingCanvas._ctx;
         var canvasDrawing = canvas.toDataURL("data:image/png");
@@ -74,17 +74,17 @@ L.Control.Redliner = L.Control.extend({
         ];
         // merge previous...
         if (this.state.comment.drawing) {
-            this.mergeWithOldDrawing(canvasDrawing, imageBounds)
+            this.mergeWithOldDrawing(canvasDrawing, imageBounds, cb)
         } else {
             this.state.comment.drawing = L.imageOverlay(canvasDrawing, imageBounds)
             this.state.comment.drawing.addTo(this._map)
+            cb()
         }
     },
-    mergeWithOldDrawing: function(drawing, bounds) {
+    mergeWithOldDrawing: function(drawing, bounds, cb) {
         var self = this
         var mergeCanvas = self.state.mergeCanvas
         var oldDrawing = this.state.comment.drawing
-        //document.body.appendChild(canvas);
         var mergeContext = mergeCanvas.getContext('2d')
         var mapBounds = self._map.getBounds()
 
@@ -117,15 +117,16 @@ L.Control.Redliner = L.Control.extend({
         };
         newImageToCanvas.onload = function () {
             // to make the eraser tool work... I can deal with this later
-            // mergeContext.globalCompositeOperation = "destination-out";
-            // mergeContext.fillStyle = "white";
-            // mergeContext.fillRect(newX_left - leftMost, newY_top - topMost, newX_right - newX_left, newY_bottom - newY_top);
+            mergeContext.globalCompositeOperation = "destination-out";
+            mergeContext.fillStyle = "white";
+            mergeContext.fillRect(newX_left - leftMost, newY_top - topMost, newX_right - newX_left, newY_bottom - newY_top);
             mergeContext.globalCompositeOperation = "source-over";
             mergeContext.drawImage(newImageToCanvas, newX_left - leftMost, newY_top - topMost, newX_right - newX_left, newY_bottom - newY_top);
             var mergedDrawing = mergeCanvas.toDataURL("data:image/png");
             self.state.comment.drawing.removeFrom(self._map)
             self.state.comment.drawing = L.imageOverlay(mergedDrawing, [newSouthWest, newNorthEast]);
             self.state.comment.drawing.addTo(self._map)
+            cb()
         };
         oldImageToCanvas.src = this.state.comment.drawing._url;
     },
@@ -169,11 +170,12 @@ L.Control.Redliner = L.Control.extend({
         L.setOptions(this, options)
         this.state = {
             currentTool: null,
-            comment: null,
+            comment: {},
             stroke: null,
             lastX: -1,
             lastY: -1,
-            mergeCanvas: document.createElement('canvas')
+            mergeCanvas: document.createElement('canvas'),
+            saving: false
         }        
         this.toolListeners = {
             redPenDown: function() {
@@ -215,8 +217,9 @@ L.Control.Redliner = L.Control.extend({
                 init: function() {
                     self.enableMapControls()
                 },
-                terminate: function() {
+                terminate: function(resolve) {
                     self.disableMapControls()
+                    resolve();                    
                 }
             },
             {
@@ -230,10 +233,9 @@ L.Control.Redliner = L.Control.extend({
                         canvas.addEventListener('mousemove', self.toolListeners.redPenMove);          
                     })                  
                 },
-                terminate: function() {
+                terminate: function(resolve) {
                     self.enableMapControls()
-                    self.stopDrawingMode()                  
-                    
+                    self.stopDrawingMode(resolve)
                 }
             },
             {
@@ -247,10 +249,9 @@ L.Control.Redliner = L.Control.extend({
                         canvas.addEventListener('mousemove', self.toolListeners.eraserMove);          
                     })                  
                 },
-                terminate: function() {
+                terminate: function(resolve) {
                     self.enableMapControls()
-                    self.stopDrawingMode()                  
-                    
+                    self.stopDrawingMode(resolve)
                 }
             }
         ]
@@ -266,15 +267,34 @@ L.Control.Redliner = L.Control.extend({
         }
     },
     setTool: function(toolName) {
-        this.state.currentTool ? this.state.currentTool.terminate() : null
-        var tool
-        this.tools.forEach(function(eachTool) {
-            if (eachTool.name == toolName) {
-                tool = eachTool
-            }
-        })
-        tool.init()
-        this.state.currentTool = tool
+        var self = this
+        if (self.state.currentTool && self.state.currentTool.name == toolName) {
+            return
+        }
+        if (this.state.currentTool) {
+            var terminatePromise = new Promise(self.state.currentTool.terminate)
+                .then(function(result) {
+                    var tool
+                    self.tools.forEach(function(eachTool) {
+                        if (eachTool.name == toolName) {
+                            tool = eachTool
+                        }
+                    })
+                    tool.init()
+                    self.state.currentTool = tool
+                }, function(err) {
+                    console.log(err)
+                })
+        } else {
+            var tool
+            self.tools.forEach(function(eachTool) {
+                if (eachTool.name == toolName) {
+                    tool = eachTool
+                }
+            })
+            tool.init()
+            self.state.currentTool = tool            
+        }
     }
 });
 
