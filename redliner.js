@@ -44,14 +44,66 @@ L.Control.Redliner = L.Control.extend({
         this.state.drawingCanvas.removeFrom(this._map)
         this.state.drawingCanvas = null
     },
+    drawLine: function (x, y, size, color) {
+        var self = this
+        //operation properties
+        var ctx = self.state.drawingCanvas._ctx
+        ctx.globalCompositeOperation = "source-over";
+
+        // If lastX is not set, set lastX and lastY to the current position
+        if (self.state.lastX == -1) {
+            self.state.lastX = x;
+            self.state.lastY = y;
+        }
+
+        ctx.strokeStyle = color;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(self.state.lastX, self.state.lastY);
+        ctx.lineTo(x, y);
+        ctx.lineWidth = size;
+        ctx.stroke();
+        ctx.closePath();
+        // Update the last position to reference the current position
+        self.state.lastX = x;
+        self.state.lastY = y;
+    },
+    getMousePos: function (e) {
+        pos = this._map.mouseEventToLayerPoint(e);
+        return {
+            x: pos.x,
+            y: pos.y,
+        };
+    },
     initialize: function (options) {
         var self = this
         L.setOptions(this, options)
+        this.state = {
+            currentTool: null,
+            comment: null,
+            stroke: null,
+            lastX: -1,
+            lastY: -1
+        }        
         this.toolListeners = {
             redPenDown: function() {
+                console.log('pen down')
                 self.state.stroke = true
-                console.log('REEEEE')
-            }
+            },
+            redPenUp: function() {
+                console.log('pen up')
+                self.state.stroke = false
+                self.state.lastX = -1
+                self.state.lastY = -1                
+            },
+            redPenMove: function(e) {
+                if (self.state.stroke) {
+                    var pos = self.getMousePos(e);                
+                    self.state.mouseX = pos.x;
+                    self.state.mouseY = pos.y;
+                    self.drawLine(self.state.mouseX, self.state.mouseY, 3, 'red');
+                }
+            }            
         }
         this.tools = [
             {
@@ -70,6 +122,8 @@ L.Control.Redliner = L.Control.extend({
                     self.startDrawingMode(function(canvas) {
                         // add listeners to canvas
                         canvas.addEventListener('mousedown', self.toolListeners.redPenDown);          
+                        canvas.addEventListener('mouseup', self.toolListeners.redPenUp);          
+                        canvas.addEventListener('mousemove', self.toolListeners.redPenMove);          
                     })                  
                 },
                 terminate: function() {
@@ -78,11 +132,7 @@ L.Control.Redliner = L.Control.extend({
                     
                 }
             }
-        ];
-        this.state = {
-            currentTool: null,
-            comment: null
-        }
+        ]
     },
     onAdd: function (map) {
         var container = L.DomUtil.create('div', 'leaflet-control-redliner  leaflet-control');        
