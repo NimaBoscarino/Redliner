@@ -30,22 +30,38 @@ L.Control.Redliner = L.Control.extend({
     startDrawingMode: function(addListeners) {
         // spawn a canvas
         this.state.drawingCanvas = L.canvas({ padding: 0 })
-        this.state.drawingCanvas.addTo(this._map)
+        this.state.drawingCanvas.addTo(this._map)        
+        if (this.state.comment.drawing) {
+            this.loadDrawingToCanvas()
+            this.state.comment.drawing.removeFrom(this._map)
+        }
+        
         // add listeners to canvas
         addListeners(this.state.drawingCanvas._container)
     },
     stopDrawingMode: function() {
         // save image from canvas...
         this.saveDrawing()
-        
-        // augment old image...
-
         // remove and destroy drawingCanvas
         this.state.drawingCanvas.removeFrom(this._map)
         this.state.drawingCanvas = null
     },
+    loadDrawingToCanvas: function() {
+        var self = this
+        var image = self.state.comment.drawing
+        var canvas = self.state.drawingCanvas._container;
+        var context = canvas.getContext('2d');
+        var imageObj = new Image();
+        var newWidth = image._image.width
+        var newHeight = image._image.height
+        imageObj.onload = function () {
+            context.drawImage(imageObj, image._image._leaflet_pos.x, image._image._leaflet_pos.y, newWidth, newHeight);
+            image.removeFrom(self.ownMap);
+        };
+
+        imageObj.src = image._image.src;
+    },
     saveDrawing: function() {
-        // SAVING LOGIC
         var canvas = this.state.drawingCanvas._container;
         var context = this.state.drawingCanvas._ctx;
         var canvasDrawing = canvas.toDataURL("data:image/png");
@@ -56,13 +72,11 @@ L.Control.Redliner = L.Control.extend({
             [imageBoundsMinCoord.lat, imageBoundsMinCoord.lng],
             [imageBoundsMaxCoord.lat, imageBoundsMaxCoord.lng]
         ];
-
         // merge previous...
         if (this.state.comment.drawing) {
-            this.state.comment.drawing.removeFrom(this._map)
             this.mergeWithOldDrawing(canvasDrawing, imageBounds)
         } else {
-            this.state.comment.drawing = L.imageOverlay(canvasDrawing, imageBounds);
+            this.state.comment.drawing = L.imageOverlay(canvasDrawing, imageBounds)
             this.state.comment.drawing.addTo(this._map)
         }
     },
@@ -109,9 +123,9 @@ L.Control.Redliner = L.Control.extend({
             mergeContext.globalCompositeOperation = "source-over";
             mergeContext.drawImage(newImageToCanvas, newX_left - leftMost, newY_top - topMost, newX_right - newX_left, newY_bottom - newY_top);
             var mergedDrawing = mergeCanvas.toDataURL("data:image/png");
-            // comment.removeLayer(drawing);
+            self.state.comment.drawing.removeFrom(self._map)
             self.state.comment.drawing = L.imageOverlay(mergedDrawing, [newSouthWest, newNorthEast]);
-            self._map.addLayer(self.state.comment.drawing);
+            self.state.comment.drawing.addTo(self._map)
         };
         oldImageToCanvas.src = this.state.comment.drawing._url;
     },
@@ -119,8 +133,12 @@ L.Control.Redliner = L.Control.extend({
         var self = this
         //operation properties
         var ctx = self.state.drawingCanvas._ctx
-        ctx.globalCompositeOperation = "source-over";
-
+        if (color === 'eraser') {
+            color = 'black' // doesn't matter lol
+            ctx.globalCompositeOperation = "destination-out";            
+        } else {
+            ctx.globalCompositeOperation = "source-over";
+        }
         // If lastX is not set, set lastX and lastY to the current position
         if (self.state.lastX == -1) {
             self.state.lastX = x;
@@ -173,7 +191,23 @@ L.Control.Redliner = L.Control.extend({
                     self.state.mouseY = pos.y;
                     self.drawLine(self.state.mouseX, self.state.mouseY, 3, 'red');
                 }
-            }            
+            },        
+            eraserDown: function() {
+                self.state.stroke = true
+            },
+            eraserUp: function() {
+                self.state.stroke = false
+                self.state.lastX = -1
+                self.state.lastY = -1                
+            },
+            eraserMove: function(e) {
+                if (self.state.stroke) {
+                    var pos = self.getMousePos(e);                
+                    self.state.mouseX = pos.x;
+                    self.state.mouseY = pos.y;
+                    self.drawLine(self.state.mouseX, self.state.mouseY, 35, 'eraser');
+                }
+            }
         }
         this.tools = [
             {
@@ -194,6 +228,23 @@ L.Control.Redliner = L.Control.extend({
                         canvas.addEventListener('mousedown', self.toolListeners.redPenDown);          
                         canvas.addEventListener('mouseup', self.toolListeners.redPenUp);          
                         canvas.addEventListener('mousemove', self.toolListeners.redPenMove);          
+                    })                  
+                },
+                terminate: function() {
+                    self.enableMapControls()
+                    self.stopDrawingMode()                  
+                    
+                }
+            },
+            {
+                name: 'eraser',
+                init: function() {
+                    self.disableMapControls()
+                    self.startDrawingMode(function(canvas) {
+                        // add listeners to canvas
+                        canvas.addEventListener('mousedown', self.toolListeners.eraserDown);          
+                        canvas.addEventListener('mouseup', self.toolListeners.eraserUp);          
+                        canvas.addEventListener('mousemove', self.toolListeners.eraserMove);          
                     })                  
                 },
                 terminate: function() {

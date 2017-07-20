@@ -268,9 +268,9 @@ L.Control.HatPanelRedliner = L.Control.extend({
     },
     _eraserButtonClick: function () {
         this._styleToolAsSelected(this.EraserButton, this.EraserRadio);
-        this._disableMapInteractions();
-        this._setupCurrentRedlinerComment();
-        this.redliner.Tools.setCurrentTool('eraser');
+        // this._disableMapInteractions();
+        // this._setupCurrentRedlinerComment();
+        redliner.setTool('eraser')
     },
     _drawRedButtonClick: function () {
         this._styleToolAsSelected(this.DrawRedButton, this.DrawRedRadio);
