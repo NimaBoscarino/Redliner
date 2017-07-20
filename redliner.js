@@ -169,6 +169,176 @@ L.Control.Redliner = L.Control.extend({
         self.state.lastX = x;
         self.state.lastY = y;
     },
+    renderText: function(marker) {
+        var self = this;
+        var textBox = document.getElementById(marker.textId);
+        var val = textBox.value        
+        var boundingRect = textBox.getBoundingClientRect();
+        var canvas = document.createElement('canvas');
+        var ctx = canvas.getContext('2d');
+        //hardcoded for now
+        canvas.height = 1000;
+        canvas.width = 1000;
+        var lineHeight = 25;
+        var colWidth = 18;
+        ctx.font = "30px monospace";
+        var col = 0;
+        var row = 0;
+        // parsing every character, this is going to turn into a beast one day
+        val.split('').forEach(function (splitChar) {
+            ctx.fillText(splitChar, col * colWidth, (row + 1) * lineHeight); // figure out the relationship between this offset and the font size....
+            col++;
+            if ((col == 30) || splitChar == '\n') {
+                col = 0;
+                row++;
+            }
+        });
+
+        var img = new Image();
+
+        img.onload = function () {
+            self.placeText({
+                marker: marker,
+                img: img,
+                textId: marker.textId,
+                val: val
+            });
+        };
+
+        img.src = self.cropImageFromCanvas(ctx, canvas);
+    },
+    placeText: function(args) {
+        var self = this; // I should get this tattooed on my forehead.
+
+        var marker = args.marker;
+        var img = args.img;
+        var textId = args.textId;
+        var val = args.val;
+
+        var markerToPoint = self._map.latLngToLayerPoint(marker._latlng);
+        var southWest = self._map.layerPointToLatLng([markerToPoint.x + img.width, markerToPoint.y + img.height]);
+        var northEast = marker._latlng;
+        var newTextImageOverlay = L.imageOverlay(img.src, [southWest, northEast], { interactive: true, pane: 'markerPane' });
+        marker.bounds = {
+            northEast: northEast,
+            southWest: southWest,
+        };
+        marker.dataUrl = img.src;
+        marker.textVal = val;
+        marker.textZoomLevel = self._map.getZoom();
+
+        // eraser listeners
+        newTextImageOverlay.on('mouseover', function () {
+            if (self.state.currentTool.name == 'eraser') {
+                L.DomUtil.addClass(newTextImageOverlay._image, 'text-hover-erase');
+            }
+        });
+        newTextImageOverlay.on('mouseout', function () {
+            if (self.state.currentTool.name == 'eraser') {
+                L.DomUtil.removeClass(newTextImageOverlay._image, 'text-hover-erase');
+            }
+        });
+        newTextImageOverlay.on('click', function () {
+            if (self.state.currentTool.name == 'eraser') {
+                newTextImageOverlay.removeFrom(self._map)
+                marker.removeFrom(self._map)
+                // I also have to remove it from the array
+            }
+        });
+
+        // text tool listeners (for editing)
+        newTextImageOverlay.on('mouseover', function () {
+            if (self.state.currentTool.name == 'text') {
+                L.DomUtil.addClass(newTextImageOverlay._image, 'text-hover-edit');
+            }
+        });
+        newTextImageOverlay.on('mouseout', function () {
+            if (self.state.currentTool.name == 'text') {
+                L.DomUtil.removeClass(newTextImageOverlay._image, 'text-hover-edit');
+            }
+        });
+        newTextImageOverlay.on('click', function () {
+            if (self.state.currentTool.name == 'text') {
+                self._map.setView(marker._latlng, marker.textZoomLevel, { animate: false });
+                self._map.panBy([200, 150], { animate: false });                
+                marker.addTo(self._map)
+                newTextImageOverlay.removeFrom(self._map)
+                self.toolListeners.textClick(null, marker)
+
+                // L.DomUtil.removeClass(newTextImageOverlay._image, 'text-hover-edit');
+
+                // self.root.saveDrawing(comment);
+                // self.root.ownMap.setView(marker._latlng, marker.textZoomLevel, { animate: false });
+                // self.root.ownMap.panBy([200, 150], { animate: false });
+
+                // newTextImageOverlay.removeFrom(self.root.ownMap);
+
+                // comment.textLayerGroup.getLayers().forEach(function (layer) {
+                //     if (layer.layerType == 'textAreaMarker' && layer.textId == textId) {
+                //         layer.addTo(self.root.ownMap);
+                //         var inputBox = document.getElementById(textId);
+                //         inputBox.value = layer.textVal;
+                //         inputBox.focus();
+
+                //         var inputRenderText = function (e) {
+                //             self.renderText(comment, textId, inputBox.value, layer);
+                //         };
+
+                //         var image;
+                //         comment.getLayers().forEach(function (layer) {
+                //             if (layer.layerType == 'drawing') {
+                //                 image = layer;
+                //             }
+                //         });
+
+                //         self.root.editComment(comment, image, { addText: true, textAreaMarker: marker });
+                //         self.root.Tools.setCurrentTool('text', { listeners: false });
+
+                //         inputBox.addEventListener('input', inputRenderText, false);
+                //     }
+                // });
+            }
+        });
+
+        marker.textImage = newTextImageOverlay
+        newTextImageOverlay.removeFrom(self._map)
+    },
+    cropImageFromCanvas: function(ctx, canvas) {
+        var w = canvas.width,
+        h = canvas.height,
+        pix = { x: [], y: [] },
+        imageData = ctx.getImageData(0, 0, canvas.width, canvas.height),
+        x, y, index;
+
+        for (y = 0; y < h; y++) {
+            for (x = 0; x < w; x++) {
+                index = (y * w + x) * 4;
+                if (imageData.data[index + 3] > 0) {
+                    pix.x.push(x);
+                    pix.y.push(y);
+                }
+            }
+        }
+        pix.x.sort(function (a, b) {
+            return a - b;
+        });
+        pix.y.sort(function (a, b) {
+            return a - b;
+        });
+        var n = pix.x.length - 1;
+
+        w = pix.x[n] - pix.x[0] + 5;
+        h = pix.y[n] - pix.y[0] + 5;
+
+        var cut = ctx.getImageData(pix.x[0] - 3, pix.y[0] - 3, w, h);
+
+        canvas.width = w;
+        canvas.height = h;
+        ctx.putImageData(cut, 0, 0);
+
+        var image = canvas.toDataURL();
+        return image;
+    },
     getMousePos: function (e) {
         pos = this._map.mouseEventToLayerPoint(e);
         return {
@@ -176,13 +346,22 @@ L.Control.Redliner = L.Control.extend({
             y: pos.y,
         };
     },
+    generateGUID: function () {
+        function s4() {
+            return Math.floor((1 + Math.random()) * 0x10000).toString(16).substring(1);
+        }
+        return s4() + s4() + '-' + s4() + '-' + s4() + '-' + s4() + '-' + s4() + s4() + s4();
+    },
     initialize: function (options) {
         var self = this
         L.setOptions(this, options)
         this.state = {
             open: false,
             currentTool: null,
-            comment: {},
+            comment: {
+                drawing: null,
+                text: []
+            },
             stroke: null,
             lastX: -1,
             lastY: -1,
@@ -254,7 +433,49 @@ L.Control.Redliner = L.Control.extend({
                     self.state.mouseY = pos.y;
                     self.drawLine(self.state.mouseX, self.state.mouseY, 35, 'eraser');
                 }
+            },
+            textClick: function(e, prevMarker) {
+                var marker, coords, id
+                if (e == null) {
+                    console.log(prevMarker)
+                    prevMarker.addTo(self._map)
+                    textBox = document.getElementById(prevMarker.textId);
+                    textBox.value = prevMarker.textVal
+                    textBox.focus();
+                    textBox.addEventListener('input', self.toolListeners.inputRenderText);                    
+                } else {
+                    if (self.state.placeText) {
+                        coords = self._map.containerPointToLatLng([e.layerX, e.layerY]);                    
+                        var id = self.generateGUID()
+                        var myIcon = L.divIcon({
+                            className: 'text-comment-div',
+                            html: '<textarea id="' + id + '" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="text-comment-input" rows="6" cols="30" maxlength="130"></textarea>'
+                        });
+                        marker = L.marker(coords, {
+                            icon: myIcon
+                        });
+                        marker.textId = id;
+                        marker.addTo(self._map);
+                        self.state.currentMarker = marker
+                        self._map.setView(marker._latlng, self._map.getZoom(), { animate: false });
+                        self._map.panBy([200, 150], { animate: false });
+                        
+                        self.state.comment.text.push(marker)
+                        textBox = document.getElementById(id);
+                        textBox.focus();
+                        textBox.addEventListener('input', self.toolListeners.inputRenderText);
+                        
+                    } else {
+                        self.state.currentMarker.removeFrom(self._map)
+                        self.state.currentMarker.textImage.addTo(self._map)
+                    }      
+                }
+                self.state.placeText = !self.state.placeText
+            },
+            inputRenderText: function (e) {
+                self.renderText(self.state.currentMarker);
             }
+
         }
         this.tools = [
             {
@@ -330,7 +551,22 @@ L.Control.Redliner = L.Control.extend({
                     self.enableMapControls()
                     self.stopDrawingMode(resolve)
                 }
-            }
+            },
+            {
+                name: 'text',
+                init: function() {
+                    self.disableMapControls()
+                    self.startDrawingMode(function(canvas) {
+                        // add listeners to canvas
+                        self.state.placeText = true
+                        canvas.addEventListener('click', self.toolListeners.textClick);          
+                    })                  
+                },
+                terminate: function(resolve) {
+                    self.enableMapControls()
+                    self.stopDrawingMode(resolve)
+                }
+            },            
         ]
     },
     onAdd: function (map) {

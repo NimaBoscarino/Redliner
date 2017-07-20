@@ -129,7 +129,7 @@
 
 
 .text-comment-input {
-    border: 0 none white;
+    border: dashed 3px green;
     padding: 0 !important;
     outline: none !important;
     background: transparent !important;
