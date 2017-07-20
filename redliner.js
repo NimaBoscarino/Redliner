@@ -55,6 +55,23 @@ L.Control.Redliner = L.Control.extend({
         // add listeners to canvas
         addListeners(this.state.drawingCanvas._container)
     },
+    startTextMode: function(addListeners) {
+        // clear the canvas
+        this.state.textCanvas = L.canvas({ padding: 0 })
+        this.state.textCanvas.addTo(this._map)                
+        // add listeners to canvas
+        addListeners(this.state.textCanvas._container)
+    },    
+    stopTextMode: function(cb) {
+        // clear the canvas
+        try {
+            this.state.textCanvas.removeFrom(this._map)
+            this.state.textCanvas = null
+        } catch (e) {
+            
+        }
+        cb()      
+    },
     loadDrawingToCanvas: function() {
         var self = this
         var image = self.state.comment.drawing
@@ -242,7 +259,7 @@ L.Control.Redliner = L.Control.extend({
             if (self.state.currentTool.name == 'eraser') {
                 newTextImageOverlay.removeFrom(self._map)
                 marker.removeFrom(self._map)
-                // I also have to remove it from the array
+                marker.deleted = true
             }
         });
 
@@ -264,39 +281,6 @@ L.Control.Redliner = L.Control.extend({
                 marker.addTo(self._map)
                 newTextImageOverlay.removeFrom(self._map)
                 self.toolListeners.textClick(null, marker)
-
-                // L.DomUtil.removeClass(newTextImageOverlay._image, 'text-hover-edit');
-
-                // self.root.saveDrawing(comment);
-                // self.root.ownMap.setView(marker._latlng, marker.textZoomLevel, { animate: false });
-                // self.root.ownMap.panBy([200, 150], { animate: false });
-
-                // newTextImageOverlay.removeFrom(self.root.ownMap);
-
-                // comment.textLayerGroup.getLayers().forEach(function (layer) {
-                //     if (layer.layerType == 'textAreaMarker' && layer.textId == textId) {
-                //         layer.addTo(self.root.ownMap);
-                //         var inputBox = document.getElementById(textId);
-                //         inputBox.value = layer.textVal;
-                //         inputBox.focus();
-
-                //         var inputRenderText = function (e) {
-                //             self.renderText(comment, textId, inputBox.value, layer);
-                //         };
-
-                //         var image;
-                //         comment.getLayers().forEach(function (layer) {
-                //             if (layer.layerType == 'drawing') {
-                //                 image = layer;
-                //             }
-                //         });
-
-                //         self.root.editComment(comment, image, { addText: true, textAreaMarker: marker });
-                //         self.root.Tools.setCurrentTool('text', { listeners: false });
-
-                //         inputBox.addEventListener('input', inputRenderText, false);
-                //     }
-                // });
             }
         });
 
@@ -437,7 +421,6 @@ L.Control.Redliner = L.Control.extend({
             textClick: function(e, prevMarker) {
                 var marker, coords, id
                 if (e == null) {
-                    console.log(prevMarker)
                     prevMarker.addTo(self._map)
                     textBox = document.getElementById(prevMarker.textId);
                     textBox.value = prevMarker.textVal
@@ -556,7 +539,7 @@ L.Control.Redliner = L.Control.extend({
                 name: 'text',
                 init: function() {
                     self.disableMapControls()
-                    self.startDrawingMode(function(canvas) {
+                    self.startTextMode(function(canvas) {
                         // add listeners to canvas
                         self.state.placeText = true
                         canvas.addEventListener('click', self.toolListeners.textClick);          
@@ -564,7 +547,7 @@ L.Control.Redliner = L.Control.extend({
                 },
                 terminate: function(resolve) {
                     self.enableMapControls()
-                    self.stopDrawingMode(resolve)
+                    self.stopTextMode(resolve)
                 }
             },            
         ]
