@@ -283,19 +283,21 @@ L.Control.HatPanelRedliner = L.Control.extend({
     },
     _drawYellowButtonClick: function () {
         this._styleToolAsSelected(this.DrawYellowButton, this.DrawYellowRadio);
-        this._disableMapInteractions();
-        this._setupCurrentRedlinerComment();
-        this.redliner.Tools.setCurrentTool('pen', {
-            colour: 'yellow'
-        });
+        // this._disableMapInteractions();
+        // this._setupCurrentRedlinerComment();
+        // this.redliner.Tools.setCurrentTool('pen', {
+        //     colour: 'yellow'
+        // });
+        redliner.setTool('yellowpen')        
     },
     _drawBlackButtonClick: function () {
         this._styleToolAsSelected(this.DrawBlackButton, this.DrawBlackRadio);
-        this._disableMapInteractions();
-        this._setupCurrentRedlinerComment();
-        this.redliner.Tools.setCurrentTool('pen', {
-            colour: 'black'
-        });
+        // this._disableMapInteractions();
+        // this._setupCurrentRedlinerComment();
+        // this.redliner.Tools.setCurrentTool('pen', {
+        //     colour: 'black'
+        // });
+        redliner.setTool('blackpen')        
     },
 
     _updateExistingCommentsDisplay: function(){

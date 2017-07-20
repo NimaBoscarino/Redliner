@@ -194,6 +194,38 @@ L.Control.Redliner = L.Control.extend({
                     self.drawLine(self.state.mouseX, self.state.mouseY, 3, 'red');
                 }
             },        
+            yellowPenDown: function() {
+                self.state.stroke = true
+            },
+            yellowPenUp: function() {
+                self.state.stroke = false
+                self.state.lastX = -1
+                self.state.lastY = -1                
+            },
+            yellowPenMove: function(e) {
+                if (self.state.stroke) {
+                    var pos = self.getMousePos(e);                
+                    self.state.mouseX = pos.x;
+                    self.state.mouseY = pos.y;
+                    self.drawLine(self.state.mouseX, self.state.mouseY, 3, 'yellow');
+                }
+            },        
+            blackPenDown: function() {
+                self.state.stroke = true
+            },
+            blackPenUp: function() {
+                self.state.stroke = false
+                self.state.lastX = -1
+                self.state.lastY = -1                
+            },
+            blackPenMove: function(e) {
+                if (self.state.stroke) {
+                    var pos = self.getMousePos(e);                
+                    self.state.mouseX = pos.x;
+                    self.state.mouseY = pos.y;
+                    self.drawLine(self.state.mouseX, self.state.mouseY, 3, 'black');
+                }
+            },        
             eraserDown: function() {
                 self.state.stroke = true
             },
@@ -231,6 +263,38 @@ L.Control.Redliner = L.Control.extend({
                         canvas.addEventListener('mousedown', self.toolListeners.redPenDown);          
                         canvas.addEventListener('mouseup', self.toolListeners.redPenUp);          
                         canvas.addEventListener('mousemove', self.toolListeners.redPenMove);          
+                    })                  
+                },
+                terminate: function(resolve) {
+                    self.enableMapControls()
+                    self.stopDrawingMode(resolve)
+                }
+            },
+            {
+                name: 'yellowpen',
+                init: function() {
+                    self.disableMapControls()
+                    self.startDrawingMode(function(canvas) {
+                        // add listeners to canvas
+                        canvas.addEventListener('mousedown', self.toolListeners.yellowPenDown);          
+                        canvas.addEventListener('mouseup', self.toolListeners.yellowPenUp);          
+                        canvas.addEventListener('mousemove', self.toolListeners.yellowPenMove);          
+                    })                  
+                },
+                terminate: function(resolve) {
+                    self.enableMapControls()
+                    self.stopDrawingMode(resolve)
+                }
+            },
+            {
+                name: 'blackpen',
+                init: function() {
+                    self.disableMapControls()
+                    self.startDrawingMode(function(canvas) {
+                        // add listeners to canvas
+                        canvas.addEventListener('mousedown', self.toolListeners.blackPenDown);          
+                        canvas.addEventListener('mouseup', self.toolListeners.blackPenUp);          
+                        canvas.addEventListener('mousemove', self.toolListeners.blackPenMove);          
                     })                  
                 },
                 terminate: function(resolve) {
