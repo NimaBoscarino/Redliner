@@ -1,6 +1,22 @@
 L.Control.Redliner = L.Control.extend({
     options: {
     },
+    toggle: function() {
+        var self = this
+        this.state.open = !this.state.open
+        if (this.state.open) {
+            this.setTool('move')
+        } else {
+            if (this.state.currentTool.name != 'move') {
+                var terminatePromise = new Promise(self.state.currentTool.terminate)
+                    .then(function(result) {
+                        self.enableMapControls()
+                    }, function(err) {
+                        console.log(err)
+                    })
+            }
+        }
+    },
     enableMapControls: function() {
         var self = this
         self._map.zoomControl.enable();
@@ -28,7 +44,7 @@ L.Control.Redliner = L.Control.extend({
         }                    
     },
     startDrawingMode: function(addListeners) {
-        // spawn a canvas
+        // clear the canvas
         this.state.drawingCanvas = L.canvas({ padding: 0 })
         this.state.drawingCanvas.addTo(this._map)        
         if (this.state.comment.drawing) {
@@ -38,13 +54,6 @@ L.Control.Redliner = L.Control.extend({
         
         // add listeners to canvas
         addListeners(this.state.drawingCanvas._container)
-    },
-    stopDrawingMode: function(cb) {
-        // save image from canvas...
-        this.saveDrawing(cb)
-        // remove and destroy drawingCanvas
-        this.state.drawingCanvas.removeFrom(this._map)
-        this.state.drawingCanvas = null
     },
     loadDrawingToCanvas: function() {
         var self = this
@@ -61,7 +70,7 @@ L.Control.Redliner = L.Control.extend({
 
         imageObj.src = image._image.src;
     },
-    saveDrawing: function(cb) {
+    stopDrawingMode: function(cb) {
         var canvas = this.state.drawingCanvas._container;
         var context = this.state.drawingCanvas._ctx;
         var canvasDrawing = canvas.toDataURL("data:image/png");
@@ -78,6 +87,7 @@ L.Control.Redliner = L.Control.extend({
         } else {
             this.state.comment.drawing = L.imageOverlay(canvasDrawing, imageBounds)
             this.state.comment.drawing.addTo(this._map)
+            this.state.drawingCanvas.removeFrom(this._map)
             cb()
         }
     },
@@ -126,6 +136,7 @@ L.Control.Redliner = L.Control.extend({
             self.state.comment.drawing.removeFrom(self._map)
             self.state.comment.drawing = L.imageOverlay(mergedDrawing, [newSouthWest, newNorthEast]);
             self.state.comment.drawing.addTo(self._map)
+            self.state.drawingCanvas.removeFrom(self._map)            
             cb()
         };
         oldImageToCanvas.src = this.state.comment.drawing._url;
@@ -169,11 +180,13 @@ L.Control.Redliner = L.Control.extend({
         var self = this
         L.setOptions(this, options)
         this.state = {
+            open: false,
             currentTool: null,
             comment: {},
             stroke: null,
             lastX: -1,
             lastY: -1,
+            drawingCanvas: L.canvas({ padding: 0 }),
             mergeCanvas: document.createElement('canvas'),
             saving: false
         }        
@@ -323,12 +336,6 @@ L.Control.Redliner = L.Control.extend({
     onAdd: function (map) {
         var container = L.DomUtil.create('div', 'leaflet-control-redliner  leaflet-control');        
         return container
-    },
-    newComment: function() {
-        this.state.comment = {
-            name: 'Comment',
-            drawing: null
-        }
     },
     setTool: function(toolName) {
         var self = this

@@ -38,8 +38,8 @@ L.Control.HatPanelRedliner = L.Control.extend({
     },
 
     _panelToggleOpenCloseClick : function(){
-        redliner.newComment()
-        redliner.setTool('move')
+        redliner.toggle()
+        this._moveMapButtonClick()
     },
 
     _setActiveTool: function(toolConstant){
