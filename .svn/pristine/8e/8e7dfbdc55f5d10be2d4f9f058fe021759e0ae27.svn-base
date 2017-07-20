@@ -1,0 +1,108 @@
+﻿<?xml version="1.0"?>
+<!--
+  For more information on how to configure your ASP.NET application, please visit
+  http://go.microsoft.com/fwlink/?LinkId=301880
+  -->
+<configuration>
+  <configSections>
+    <!-- For more information on Entity Framework configuration, visit http://go.microsoft.com/fwlink/?LinkID=237468 -->
+    <section name="entityFramework" type="System.Data.Entity.Internal.ConfigFile.EntityFrameworkSection, EntityFramework, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" requirePermission="false"/>
+  </configSections>
+  <connectionStrings>
+    <add name="BienHoaWebMapContext" connectionString="Data Source=(localdb)\v11.0; Initial Catalog=BienHoaWebMapContext-20150727142817; Integrated Security=True; MultipleActiveResultSets=True; AttachDbFilename=|DataDirectory|BienHoaWebMapContext-20150727142817.mdf" providerName="System.Data.SqlClient"/>
+    <add name="BienHoaDataEntities" connectionString="metadata=res://*/Domain.BienHoaData.BienHoaData.csdl|res://*/Domain.BienHoaData.BienHoaData.ssdl|res://*/Domain.BienHoaData.BienHoaData.msl;provider=System.Data.SqlClient;provider connection string=&quot;data source=hf-gtvan-sql02.hatcon.local;initial catalog=PatternEnergy;persist security info=True;user id=Hatfield.WebMapping.App;password=RFXpiiM83iM4NPj;MultipleActiveResultSets=True;App=EntityFramework&quot;" providerName="System.Data.EntityClient"/>
+  </connectionStrings>
+  <appSettings>
+    <add key="webpages:Version" value="3.0.0.0"/>
+    <add key="webpages:Enabled" value="false"/>
+    <add key="ClientValidationEnabled" value="true"/>
+    <add key="UnobtrusiveJavaScriptEnabled" value="true"/>
+  </appSettings>
+  <system.web>
+    <compilation targetFramework="4.5" debug="true"/>
+    <httpRuntime targetFramework="4.5"/>
+    <!-- <authorization>
+      <deny users="?" />
+    </authorization>-->
+    <membership defaultProvider="WebMapMembershipProvider">
+      <providers>
+        <add name="WebMapMembershipProvider" type="Hatfield.WebMap.Membership.WebMapMembershipProvider, Hatfield.WebMap.MVC"/>
+      </providers>
+    </membership>
+    <authentication mode="Forms">
+      <forms name="HatfieldWebMap" loginUrl="~/BienHoa-Collaboration/Home/login" timeout="2880"/>
+    </authentication>
+  </system.web>
+  <system.webServer>
+    <!-- redirect to httpss https://blogs.msdn.microsoft.com/kaushal/2013/05/22/http-to-https-redirects-on-iis-7-x-and-higher/ -->
+    <rewrite>
+      <rules>
+        <!-- 
+        <rule name="HTTP/S to HTTPS Redirect" enabled="false" stopProcessing="true">
+          <match url="(.*)"/>
+          <conditions logicalGrouping="MatchAny">
+            <add input="{HTTP_HOST}" pattern="localhost" negate="true"/>
+            <add input="{SERVER_PORT_SECURE}" pattern="^0$"/>
+          </conditions>
+          <action type="Redirect" url="https://{HTTP_HOST}{REQUEST_URI}" redirectType="Permanent"/>
+        </rule>
+        -->
+      </rules>
+    </rewrite>
+    <!-- setup client side caching of static content (such as JS and CSS files) http://www.iis.net/configreference/system.webserver/staticcontent/clientcache -->
+    <staticContent>
+      <!--
+        <mimeMap fileExtension=".js" mimeType="application/javascript"  />
+        <mimeMap fileExtension=".css" mimeType="text/css"  />
+        <mimeMap fileExtension=".ico" mimeType="image/x-icon" />
+        -->
+      <clientCache cacheControlMode="UseExpires" httpExpires="Sat, 27 Jul 2222 00:00:00 GMT"/>
+      <!-- expire in the year 2222-->
+    </staticContent>
+    <httpProtocol>
+      <customHeaders>
+        <add name="Cache-Control" value="public"/>
+      </customHeaders>
+    </httpProtocol>
+    <handlers>
+      <remove name="ExtensionlessUrlHandler-Integrated-4.0"/>
+      <remove name="OPTIONSVerbHandler"/>
+      <remove name="TRACEVerbHandler"/>
+      <add name="ExtensionlessUrlHandler-Integrated-4.0" path="*." verb="*" type="System.Web.Handlers.TransferRequestHandler" preCondition="integratedMode,runtimeVersionv4.0"/>
+    </handlers>
+  </system.webServer>
+  <runtime>
+    <assemblyBinding xmlns="urn:schemas-microsoft-com:asm.v1">
+      <dependentAssembly>
+        <assemblyIdentity name="Newtonsoft.Json" culture="neutral" publicKeyToken="30ad4fe6b2a6aeed"/>
+        <bindingRedirect oldVersion="0.0.0.0-6.0.0.0" newVersion="6.0.0.0"/>
+      </dependentAssembly>
+      <dependentAssembly>
+        <assemblyIdentity name="System.Web.Helpers" publicKeyToken="31bf3856ad364e35"/>
+        <bindingRedirect oldVersion="1.0.0.0-3.0.0.0" newVersion="3.0.0.0"/>
+      </dependentAssembly>
+      <dependentAssembly>
+        <assemblyIdentity name="System.Web.Mvc" publicKeyToken="31bf3856ad364e35"/>
+        <bindingRedirect oldVersion="1.0.0.0-5.2.2.0" newVersion="5.2.2.0"/>
+      </dependentAssembly>
+      <dependentAssembly>
+        <assemblyIdentity name="System.Web.Optimization" publicKeyToken="31bf3856ad364e35"/>
+        <bindingRedirect oldVersion="1.0.0.0-1.1.0.0" newVersion="1.1.0.0"/>
+      </dependentAssembly>
+      <dependentAssembly>
+        <assemblyIdentity name="System.Web.WebPages" publicKeyToken="31bf3856ad364e35"/>
+        <bindingRedirect oldVersion="1.0.0.0-3.0.0.0" newVersion="3.0.0.0"/>
+      </dependentAssembly>
+      <dependentAssembly>
+        <assemblyIdentity name="WebGrease" publicKeyToken="31bf3856ad364e35"/>
+        <bindingRedirect oldVersion="0.0.0.0-1.5.2.14234" newVersion="1.5.2.14234"/>
+      </dependentAssembly>
+    </assemblyBinding>
+  </runtime>
+  <entityFramework>
+    <defaultConnectionFactory type="System.Data.Entity.Infrastructure.SqlConnectionFactory, EntityFramework"/>
+    <providers>
+      <provider invariantName="System.Data.SqlClient" type="System.Data.Entity.SqlServer.SqlProviderServices, EntityFramework.SqlServer"/>
+    </providers>
+  </entityFramework>
+</configuration>

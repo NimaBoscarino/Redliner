@@ -1,0 +1,120 @@
+﻿@{
+    Hatfield.WebMap.Domain.WebMappingSite site = ViewBag.site;
+    
+    string esriLeaflet = "esri-leaflet.min.js";
+    string hatFullScreen = "Leaflet.hatfullscreen.min.js";
+    string mouseCoords = "leaflet.mouseCoordinate.min.js";
+    string measure = "leaflet-measure.min.js";
+    string toc = "leaflet.control.HatTOC.min.js";    
+    if (HttpContext.Current.IsDebuggingEnabled)
+    { 
+        esriLeaflet = "esri-leaflet-src.js";
+        hatFullScreen = "Leaflet.hatfullscreen.js";
+        mouseCoords = "leaflet.mouseCoordinate.js";
+        measure = "leaflet-measure.js";
+        toc = "leaflet.control.HatTOC.js";        
+    }
+}
+<!-- load polyfills based on the UserAgent -->
+<script src="https://cdn.polyfill.io/v2/polyfill.min.js"></script>
+<!-- Jquery and Bootstrap -->
+<script src="https://code.jquery.com/jquery-3.1.1.min.js"
+        integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
+        crossorigin="anonymous"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+<!-- Leaflet -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.0.2/leaflet.js"></script>
+@if (site.HasLayerOfType<Hatfield.WebMap.Domain.Layers.ESRIDynamicMapLayer>() || site.HasLayerOfType<Hatfield.WebMap.Domain.Layers.ESRITiledMapLayerMapLayer>())
+{
+@*
+    <!-- Load Esri Leaflet -->
+*@
+<script src="https://unpkg.com/esri-leaflet@2.0.7"></script>
+}
+@if (site.HasLayerOfType<Hatfield.WebMap.Domain.Layers.GoogleMapsLayer>()) 
+{ 
+<!-- For Google Maps layers -->
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAxHVEeDo0g7pxmzo1PxCLIhmzjMBWEqBI " async defer></script>
+<script src='https://unpkg.com/leaflet.gridlayer.googlemutant@latest/Leaflet.GoogleMutant.js'></script>
+}
+@if (site.hasMapControl(Hatfield.WebMap.Domain.WebMapControl.IdentifySidebar))
+{
+    <!-- Leaflet hatIdentifySidebar -->
+    <script src="@Url.Content("~/js/leaflet.hatIdentifySidebar/L.Control.hatIdentifySidebar.js")?v=20170613"></script>
+}
+
+@if (site.hasMapControl(Hatfield.WebMap.Domain.WebMapControl.HatZedPanTo))
+{
+    <!-- Leaflet hatIdentifySidebar -->
+    <script src="@Url.Content("~/js/leaflet.hatZedPanTo/Leaflet.hatzedpanto.js")"></script>
+}
+
+@if (site.hasMapControl(Hatfield.WebMap.Domain.WebMapControl.FullScreen))
+{
+<!-- Leaflet Fullscreen -->
+<script src='@Url.Content("~/js/leaflet.hatFullScreen/" + hatFullScreen + "")'></script>
+}
+@if (site.hasMapControl(Hatfield.WebMap.Domain.WebMapControl.MouseCoordinates))
+{
+<!-- Leaflet mouseCoordinate -->
+<script src='@Url.Content("~/js/leaflet.mouseCoordinate/" + mouseCoords + "")'></script>
+}
+@if (site.hasMapControl(Hatfield.WebMap.Domain.WebMapControl.Measure))
+{
+<!-- Leaflet.Measure -->
+<script src='@Url.Content("~/js/leaflet-measure-2.1.7/" + measure + "")'></script>
+}
+
+@if (site.hasMapControl(Hatfield.WebMap.Domain.WebMapControl.TableOfContents))
+{
+<script type="text/javascript" src="@Url.Content("~/js/jquery-aciTree-4.5.0-rc.10/js/jquery.aciPlugin.min.js")"></script>
+<script type="text/javascript" src="@Url.Content("~/js/jquery-aciTree-4.5.0-rc.10/js/jquery.aciTree.dom.js")"></script>
+<script type="text/javascript" src="@Url.Content("~/js/jquery-aciTree-4.5.0-rc.10/js/jquery.aciTree.core.js")?v=20150728"></script>
+<script type="text/javascript" src="@Url.Content("~/js/jquery-aciTree-4.5.0-rc.10/js/jquery.aciTree.selectable.js")"></script>
+<script type="text/javascript" src="@Url.Content("~/js/jquery-aciTree-4.5.0-rc.10/js/jquery.aciTree.radio.js")"></script>
+<script type="text/javascript" src="@Url.Content("~/js/jquery-aciTree-4.5.0-rc.10/js/jquery.aciTree.checkbox.js")"></script>
+<script type="text/javascript" src="@Url.Content("~/js/"+toc+"?v=20170505")"></script>
+}
+@if (site.hasMapControl(Hatfield.WebMap.Domain.WebMapControl.BienHoaSidebar))
+{ 
+<!-- leaflet.hatBienHoaSidebar -->
+<script type="text/javascript" src="@Url.Content("~/js/leaflet.hatBienHoaSidebar/L.Control.hatBienHoaSidebar.js")?v=20151027"></script>
+}
+
+@if (site.hasMapControl(Hatfield.WebMap.Domain.WebMapControl.Redliner))
+{
+    <!-- Leaflet.redliner -->    
+    <script src="@Url.Content("~/Scripts/jquery.signalR-2.2.1.js")"></script>
+    <script src="@Url.Content("~/signalr/hubs")"></script>
+    <script src="@Url.Content("~/js/leaflet.redliner/redliner.js")"></script>
+    <script src="@Url.Content("~/js/leaflet.redliner/Leaflet.hatPanelRedliner.js")?v=20170613"></script>
+    
+
+}
+@if (site.hasMapControl(Hatfield.WebMap.Domain.WebMapControl.Hash))
+{
+    <!-- Leaflet-hash -->
+    <script src="@Url.Content("~/js/leaflet-hash/leaflet-hash.js")"></script>
+}
+@if (site.hasMapControl(Hatfield.WebMap.Domain.WebMapControl.hatPanel))
+{
+    <!-- hatPanel -->
+    <script src="@Url.Content("~/js/leaflet.hatPanel/L.hatPanel.js")?v=20170613"></script>
+}
+
+@if (!HttpContext.Current.IsDebuggingEnabled)
+{ 
+<script>
+    (function (i, s, o, g, r, a, m) {
+        i['GoogleAnalyticsObject'] = r; i[r] = i[r] || function () {
+            (i[r].q = i[r].q || []).push(arguments)
+        }, i[r].l = 1 * new Date(); a = s.createElement(o),
+        m = s.getElementsByTagName(o)[0]; a.async = 1; a.src = g; m.parentNode.insertBefore(a, m)
+    })(window, document, 'script', '//www.google-analytics.com/analytics.js', 'ga');
+
+    ga('create', 'UA-331966-32', 'auto');
+    ga('send', 'pageview');
+
+</script>
+}    
+

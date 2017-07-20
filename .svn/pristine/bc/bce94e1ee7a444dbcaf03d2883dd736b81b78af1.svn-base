@@ -1,0 +1,55 @@
+﻿@model Hatfield.WebMap.Domain.BienHoaData.CLEANUP_LEVELS
+
+@{
+    ViewBag.Title = "DU '" + Model.DU + "' Details";
+
+    Hatfield.WebMap.Domain.WebMappingSite site = ViewBag.site;
+    Layout = site.getSiteSpecificLayoutPath();
+
+    Hatfield.WebMap.Repositories.DUOrigionalLimitRepository origLimitRepo = new Hatfield.WebMap.Repositories.DUOrigionalLimitRepository();
+    var origLimit = origLimitRepo.FetchAll().Where(x => x.OBJECTID == Model.OBJECTID).FirstOrDefault();
+}
+
+<h2>@ViewBag.Title</h2>
+
+<table class="table table-bordered table-condensed table-striped " style="width: auto">
+    <tr>        
+        
+        <td>
+            @Html.DisplayNameFor(model => model.Matrix)
+        </td>
+
+        <td>
+            @Html.DisplayFor(model => model.Matrix)
+        </td>
+    </tr>
+    <tr>
+
+        <td>
+            @Html.DisplayNameFor(model => model.LandUse)
+        </td>
+
+        <td>
+            @Html.DisplayFor(model => model.LandUse)
+        </td>
+    </tr>
+   
+    <tr>
+        <td>
+            @Html.DisplayNameFor(model => model.TEQLimit)            
+        </td>
+
+        <td>
+            @Html.DisplayFor(model => model.TEQLimit)
+            @if (origLimit != null && origLimit.OrigionalLimit != null)
+            {
+                <span>(Original limit: @origLimit.OrigionalLimit.Value.ToString("N2"))</span>
+            }
+        </td>
+    </tr>
+
+</table>
+<p>
+    @Html.ActionLink("Edit DU Exceedance Limit", "Edit", new { id = Model.OBJECTID }) |
+    @Html.ActionLink("Back to List", "Index")
+</p>

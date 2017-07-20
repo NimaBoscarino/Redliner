@@ -1,0 +1,38 @@
+# WebMapping
+
+Note: Clone everything but nuget.exe if you already have a local copy of Nuget (just delete it).
+
+## Site.json definition
+
+
+    {
+      urlParameter:
+      DisplayTitle: title inserted into HTML (as title element, and for h1)
+      siteSpecificLayoutFileName: name of .cshtml file (without extension) located in Sites/Layouts
+      mapControls []: list of plugins, such as tableOfContents, fullScreen, redliner, or hash. Check the WebMapControl enum in WebMappingSite.cs for a list of available controls.
+      hasSiteSpecificCssFileName: (true | false)
+      siteSpecificCssFileName: css file specific for the site. Give name of file, and place file in Sites/css
+      hasSiteSpecificHeaderScriptsAreaControl: (true | false)
+      siteSpecificHeaderScriptsAreaControl: cshtml file with raw js written. Used for adding extra functionality to a site. Default recommendation is using _YMMFire_HeaderScriptsAreaControl, which adds layers and instantiates the ACITree + legend.
+      hasSiteSpecificTopNavigationControl: (true | false)
+      siteSpecificTopNavigationControl: cshtml file defining optional navigation bar, or other content.
+
+      mapCenter
+        lat: double
+        lng: double
+
+      initialMapZoomLevel: int
+      hatfieldTileSubdomains []:
+        - array of strings for tileserver subdomains. Hatfield uses "maps", but OSM has "a", "b", and "c", for example. Just add all of them here.
+
+      layers []
+        
+        e.g. layer {
+          displayName
+          type: (TileLayer | GoogleMapsLayer | WMSLayer | etc.) (note: layer types are defined in Domain/Layers)
+          (urls): - different layer types have different layer options. See the layer definitions in Domain/Layers, and also use ZED as an example.
+          detectRetina: (true | false)
+
+        }
+
+    }

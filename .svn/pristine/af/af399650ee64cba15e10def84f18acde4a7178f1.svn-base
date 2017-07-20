@@ -1,0 +1,255 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using System.Runtime.Serialization;
+using Newtonsoft.Json.Linq;
+
+namespace Hatfield.WebMap.Domain.aciTree
+{
+    [DataContract]
+    public class aciTreeNode
+    {
+        [DataMember]
+        public string id { get; set; }
+
+        [DataMember]
+        public string _parent_id { get; set; }
+
+        // not a datamember
+        public aciTreeNode _parent { get; set; }
+
+        // note a datamember
+        public int SortOrder_TOC { get; set;  }
+
+
+        [DataMember]
+        public bool _isGroupNode { get; set;  }
+
+        /// <summary>
+        /// (string) item text value,
+        /// </summary>
+         [DataMember]
+        public string label{ get; set; }  
+        /// <summary>
+        /// (boolean) TRUE if has childrens,
+        /// </summary>
+        [DataMember]
+        public bool inode{ get { return branch.Count > 0 ; }  }  
+        /// <summary>
+        /// (boolean) if TRUE then the node will be opened,
+        /// </summary>
+        [DataMember]
+        public bool open{ get; set; }  
+        /// <summary>
+        /// (string) CSS class name or
+        ///       Array((string) CSS class, (numeric) background-position-x, (numeric) background-position-y),
+        /// </summary>
+        [DataMember]
+        public string icon { get; set; }
+
+        [DataMember]
+        public string _iconImgUrl { get; set; }
+
+        [DataMember]
+        public int _iconImgWidth { get; set;  }
+
+        [DataMember]
+        public int _iconImgHeight { get; set; }
+
+        /// <summary>
+        /// (boolean) if TRUE the item will be selected,
+        /// </summary>
+        [DataMember]
+        public bool selected{ get; set; }  
+        /// <summary>
+        ///  (boolean) if TRUE the item will be disabled,
+        /// </summary>
+        [DataMember]
+        public bool disabled{ get; set; } 
+        /// <summary>
+        /// (boolean) if TRUE the item will have a checkbox,
+        /// </summary>
+        [DataMember]
+        public bool checkbox{ get; set; }  
+        /// <summary>
+        /// (boolean) if TRUE the item will have a radio-button,
+        /// </summary>
+         [DataMember]
+        public bool radio{ get; set; }  
+        /// <summary>
+        /// (boolean) if TRUE the item (checkbox/radio-button) will be checked,
+        /// </summary>
+        [DataMember(Name="checked")]
+        public bool _checked{ get; set; }  
+        /// <summary>
+        ///  (array) a list of children (in the same format as itemData),
+        /// </summary>
+        [DataMember]
+        public List<aciTreeNode> branch { get; set; } 
+        /// <summary>
+        /// (string) data source entry name to use when loading children
+        /// </summary>
+        [DataMember]
+        public string source{ get; set; }
+        [DataMember]
+        public int _maplayerindex { get; set; }
+        [DataMember]
+        public string _esrilayerid { get; set; }
+        [DataMember]
+        public string _minscale { get; set;  }
+        [DataMember]
+        public string _maxscale { get; set; }
+
+        public aciTreeNode()
+        {
+            branch = new List<aciTreeNode>();
+            _parent = null;
+            _parent_id = "";
+            checkbox = true;
+            _checked = false;
+            radio = false;
+            _isGroupNode = true;
+        }
+
+        public static List<aciTreeNode> ParseDynamicMapLayerFromJson(Newtonsoft.Json.Linq.JObject lObj, Domain.IMapLayer layer, int layerIndex, List<Controllers.HomeController.LegendItem> legendItems)
+        {
+            List<aciTreeNode> retNodes = new List<aciTreeNode>();
+            var id = lObj.GetValue("id");
+            if (id == null)
+                id = lObj.GetValue("layerId");
+
+            
+            var name = lObj.GetValue("name");
+            if (name == null)
+                name = lObj.GetValue("layerName");
+            
+            if (layer is Domain.Layers.ESRITiledMapLayerMapLayer)
+                name = (layer as Domain.Layers.ESRITiledMapLayerMapLayer).DisplayName;
+
+            var parentLayerId = lObj.GetValue("parentLayerId");
+            var defaultVisibility = lObj.GetValue("defaultVisibility");
+            var subLayerIdsArr = lObj.GetValue("subLayerIds") as Newtonsoft.Json.Linq.JArray;
+            var minScale = lObj.GetValue("minScale");
+            var maxScale = lObj.GetValue("maxScale");
+
+            List<Controllers.HomeController.LegendItem> layerLegendItems = new List<Controllers.HomeController.LegendItem>();
+
+            layerLegendItems = Controllers.HomeController.LegendItem.GetByLayerId(id.ToString(), legendItems);
+
+            var treeNode = new aciTreeNode();
+            treeNode.id = "node" + layerIndex.ToString() + "-" + id.ToString();
+            treeNode.label = name.ToString();
+            if (parentLayerId == null || parentLayerId.ToString() == "-1")
+                treeNode._parent_id = "#";
+            else
+                treeNode._parent_id = "node" + layerIndex.ToString() + "-" + parentLayerId.ToString();
+
+            // check if the item should be a radio button (rather than a checkbox)
+            if (layer is Domain.Layers.ESRIDynamicMapLayer)
+            {
+                int idx = Array.IndexOf<int>((layer as Domain.Layers.ESRIDynamicMapLayer).TOCRadioButtonEsriLayerIds, Convert.ToInt32(id)); 
+                if (idx >= 0)
+                {
+                    treeNode.checkbox = false;
+                    treeNode.radio = true;
+                }
+
+            }
+
+            // set _isGroupNode property
+            var subLayers = lObj.GetValue("subLayerIds");
+            if (id.ToString() == "48")
+                Console.Write("break");
+            if (subLayers != null && (subLayers as Newtonsoft.Json.Linq.JArray) != null && (subLayers as Newtonsoft.Json.Linq.JArray).Count > 0)
+                treeNode._isGroupNode = true;
+            else
+                treeNode._isGroupNode = false;
+
+
+            if (defaultVisibility != null && string.Compare(defaultVisibility.ToString(), "true", true) == 0)
+                treeNode._checked = true; 
+            else
+                treeNode._checked = false;
+
+            treeNode._maplayerindex = layerIndex;
+            treeNode._esrilayerid = id.ToString();
+
+            if (minScale != null)
+                treeNode._minscale = minScale.ToString();
+
+            if (maxScale != null)
+                treeNode._maxscale = maxScale.ToString();
+
+            if (layerLegendItems.Count == 0)
+            {
+                retNodes.Add(treeNode);
+            }
+                // -- hack to fall-through to the else statement!
+            else if (false && layerLegendItems.Count == 1)
+            {
+                // http://<mapservice-url>/<layerId1>/images/<imageUrl11>
+                var legendItem = layerLegendItems[0];
+                treeNode._iconImgUrl = Controllers.HomeController.getEsriServiceUrl(layer, "/" + legendItem.LayerId.ToString() + "/images/" + legendItem.url, Domain.TokenMode.ClientToServer, "image").ToString(); // "https://maps.hatfieldgroup.com/maps/rest/services/USAID6185_testing/USAID_BienHoa_20150717_epsg3857/MapServer/" + legendItem.LayerId.ToString() + "/images/" + legendItem.url + "?token=" + getToken();
+                retNodes.Add(treeNode);
+            }
+            else
+            {
+                retNodes.Add(treeNode);
+                // add multiple child nodes for each legend item
+                int i = 1;
+                foreach (var legItem in layerLegendItems)
+                {
+                    var legendTreeNode = new aciTreeNode();
+                    legendTreeNode.id = "node" + layerIndex.ToString() + "-" + id.ToString() + "-" + i.ToString();
+                    legendTreeNode.label = legItem.label;
+                    if (string.IsNullOrEmpty(legendTreeNode.label))
+                    {
+                        legendTreeNode.label = treeNode.label;
+                    }
+                    legendTreeNode._parent_id = treeNode.id;
+                    legendTreeNode._checked = false;
+                    
+                    
+                    // not a radio, and not a checkbox. Just a display item
+                    legendTreeNode.checkbox = false;
+                    legendTreeNode.radio = false;
+
+                    legendTreeNode._iconImgUrl = Controllers.HomeController.getEsriServiceUrl(layer, "/" + legItem.LayerId.ToString() + "/images/" + legItem.url, TokenMode.ClientToServer, "image").ToString();  // "https://maps.hatfieldgroup.com/maps/rest/services/USAID6185_testing/USAID_BienHoa_20150717_epsg3857/MapServer/" + legItem.LayerId.ToString() + "/images/" + legItem.url + "?token=" + getToken();
+
+                    legendTreeNode.disabled = true;
+                    legendTreeNode.selected = false; // always false
+
+                    retNodes.Add(legendTreeNode);
+                    i++;
+                } // foreach
+            }
+
+            return retNodes;
+        }
+
+        public static IEnumerable<aciTreeNode> BuildAndSortTreeAndGetRootNodes(List<aciTreeNode> linearObjects, Domain.WebMappingSite site)
+        {
+            // make the tree
+            Dictionary<string, aciTreeNode> lookup = new Dictionary<string, aciTreeNode>();
+            linearObjects.ForEach(x => lookup.Add(x.id, x));
+            foreach (var item in lookup.Values)
+            {
+                aciTreeNode proposedParent;
+                if (lookup.TryGetValue(item._parent_id, out proposedParent))
+                {
+                    item._parent = proposedParent;
+                    proposedParent.branch.Add(item);
+                }
+            }            
+
+            var rootNodes = lookup.Values.Where(x => x._parent == null);
+
+            // sort the tree
+            rootNodes = site.ApplyCustomTOCSort(rootNodes);
+
+            
+            return rootNodes;
+        }
+    }
+}

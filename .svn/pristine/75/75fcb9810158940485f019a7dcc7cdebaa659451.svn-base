@@ -1,0 +1,166 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using Microsoft.AspNet.SignalR;
+using Microsoft.AspNet.SignalR.Hubs;
+using System.IO;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+
+namespace Hatfield.WebMap
+{
+    [HubName("redlinerNetwork")]
+    public class RedlinerHub : Hub
+    {
+        public void registerConnection(string siteName)
+        {
+            System.Diagnostics.Debug.WriteLine("NEW CLIENT CONNECTION");
+            System.Diagnostics.Debug.WriteLine(Context.ConnectionId);
+            Groups.Add(Context.ConnectionId, siteName);
+            GenerateRedlinerJson(siteName);
+            Clients.OthersInGroup(siteName).newClientConnection();
+            Clients.Caller.acknowledgeConnection();
+        }
+
+        public void HashChanged(string newHash, string fullLocation)
+        {
+            // get the siteName from the fullLocation
+            string appPath = HttpContext.Current.Request.ApplicationPath;
+            if (!appPath.EndsWith("/"))
+                appPath += "/";
+
+            string locationPath = new Uri(fullLocation).LocalPath; // "/Zed/vegetation";
+            locationPath = locationPath.Substring(appPath.Length);
+            var locationPathParts = locationPath.Split(new char[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+
+            string siteName = locationPathParts[0].ToUpper();
+            
+            Groups.Add(Context.ConnectionId, siteName);
+            Clients.OthersInGroup(siteName).otherUserHashChanged(newHash);
+            System.Diagnostics.Debug.WriteLine(Context.ConnectionId);
+        }
+
+        public void LoadCommentsFromRedlinerJson(string siteName)
+        {
+            var path = AppDomain.CurrentDomain.BaseDirectory + @"Sites\" + siteName + "-redliner.json";
+
+            JObject siteRedlinerDef = JObject.Parse(File.ReadAllText(path));
+
+            Clients.Caller.loadCommentsFromRedlinerJson(siteRedlinerDef);
+        }
+        public void GenerateRedlinerJson(string siteName)
+        {
+            var path = AppDomain.CurrentDomain.BaseDirectory + @"Sites\" + siteName + "-redliner.json";
+            if (!File.Exists(path))
+            {
+
+                JArray comments = new JArray();
+
+                JObject siteRedlinerDef = new JObject(
+                                               new JProperty("title", siteName),
+                                               new JProperty("comments", comments));
+
+                File.WriteAllText(path, siteRedlinerDef.ToString());
+
+            }
+        }
+        public void NewCommentCreated(string siteName)
+        {
+            System.Diagnostics.Debug.WriteLine("A new comment has been created for site " + siteName);
+            Clients.OthersInGroup(siteName).newCommentCreated();
+        }
+        public void NewCommentSaved(dynamic payload)
+        {
+            string siteName = (string)payload.mapTitle;
+
+            var comment = payload.comment;
+            string dataUrl = (string)comment.dataUrl;
+
+            var path = AppDomain.CurrentDomain.BaseDirectory + @"Sites\" + siteName + "-redliner.json";
+
+            JObject siteRedlinerDef = JObject.Parse(File.ReadAllText(path));
+            
+            JObject drawing = new JObject(
+                                new JProperty("dataUrl", comment.drawing.dataUrl),
+                                new JProperty("bounds", comment.drawing.bounds)
+                            );
+
+            JObject newComment = new JObject(
+                               new JProperty("name", comment.name),
+                               new JProperty("id", comment.id),
+                               new JProperty("center", comment.center),
+                               new JProperty("drawing", drawing),
+                               new JProperty("initialZoom", comment.initialZoom));
+
+            JArray comments = (JArray)siteRedlinerDef["comments"];
+            comments.Add(newComment);
+
+            siteRedlinerDef["comments"] = comments;
+            File.WriteAllText(path, siteRedlinerDef.ToString());
+
+            System.Diagnostics.Debug.WriteLine("A new comment has been saved for site " + siteName);
+            System.Diagnostics.Debug.WriteLine(dataUrl);
+
+            Clients.OthersInGroup(siteName).newCommentSaved(comment);
+        }
+        public void CommentEditStart(dynamic payload)
+        {
+            string siteName = (string)payload.title;
+            var comment = payload.comment;
+
+            System.Diagnostics.Debug.WriteLine("A comment is being edited on site " + siteName);
+            Clients.OthersInGroup(siteName).commentEditStart(comment);
+        }
+        public void CommentEditEnd(dynamic payload)
+        {
+            string siteName = (string)payload.title;
+            var comment = payload.comment;
+
+            var path = AppDomain.CurrentDomain.BaseDirectory + @"Sites\" + siteName + "-redliner.json";
+
+            JObject siteRedlinerDef = JObject.Parse(File.ReadAllText(path));
+
+            JObject drawing = new JObject(
+                                new JProperty("dataUrl", comment.drawing.dataUrl),
+                                new JProperty("bounds", comment.drawing.bounds)
+                            );
+
+            JObject newComment = new JObject(
+                               new JProperty("name", comment.name),
+                               new JProperty("id", comment.id),
+                               new JProperty("center", comment.center),
+                               new JProperty("drawing", drawing),
+                               new JProperty("initialZoom", comment.initialZoom));
+
+            JArray comments = (JArray)siteRedlinerDef["comments"];
+
+            for (int i = 0; i < comments.Count; i++)
+            {
+                if (comments[i]["id"] == comment.id)
+                {
+                    comments[i] = newComment;
+                }
+            }
+
+            siteRedlinerDef["comments"] = comments;
+            File.WriteAllText(path, siteRedlinerDef.ToString());
+            
+            System.Diagnostics.Debug.WriteLine("A comment is no longer being edited on site " + siteName);
+            Clients.OthersInGroup(siteName).commentEditEnd(comment);
+        }
+
+    }
+
+    public class RedlinerSite
+    {
+        public string Name { get; set; }
+        public List<Comment> Comments { get; set; }
+    }
+
+    public class Comment
+    {
+        public string Name { get; set; }
+        public string Centre { get; set; }
+    }
+}

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="3.0" xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx">
+ <!-- EF Designer content (DO NOT EDIT MANUALLY BELOW HERE) -->
+  <edmx:Designer xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
+    <!-- Diagram content (shape and connector positions) -->
+    <edmx:Diagrams>
+      <Diagram DiagramId="c5c5ca63a9954838809a0f320ed00af2" Name="Diagram1" ZoomLevel="80">
+        <EntityTypeShape EntityType="BienHoaDataModel.CLEANUP_LEVELS" Width="1.5" PointX="5.375" PointY="0.75" />
+        <EntityTypeShape EntityType="BienHoaDataModel.v_DU_depth_exceeds" Width="1.5" PointX="0.75" PointY="0.75" />
+        <EntityTypeShape EntityType="BienHoaDataModel.v_DU_exceeds" Width="1.5" PointX="3.75" PointY="4.75" />
+        <EntityTypeShape EntityType="BienHoaDataModel.v_DU_levels" Width="1.5" PointX="5.75" PointY="4.75" />
+        <EntityTypeShape EntityType="BienHoaDataModel.v_subDU_depth_exceeds" Width="1.5" PointX="7.75" PointY="0.75" />
+        <EntityTypeShape EntityType="BienHoaDataModel.v_subDU_levels" Width="1.5" PointX="0.75" PointY="7.75" />
+        <EntityTypeShape EntityType="BienHoaDataModel.PHASE2_FISH" Width="1.5" PointX="8.375" PointY="6.75" />
+        <EntityTypeShape EntityType="BienHoaDataModel.PHASE2_WATER" Width="1.5" PointX="10.375" PointY="0.75" />
+      </Diagram>
+    </edmx:Diagrams>
+  </edmx:Designer>
+</edmx:Edmx>

@@ -1,0 +1,480 @@
+/*
+	hatBienHoaSidebar
+	based on L.Control.SideBar https://github.com/Turbo87/leaflet-sidebar
+*/
+L.Control.hatBienHoaSidebar = L.Control.extend({
+
+    includes: L.Mixin.Events,
+
+    options: {
+        closeButton: true,
+        position: 'left',
+        autoPan: true,
+    },
+
+    initialize: function (placeholder, options) {
+        L.setOptions(this, options);
+
+        this._queryMapMarker = null;
+
+        // Find content container
+        var content = this._contentContainer = L.DomUtil.get(placeholder);
+
+        // Remove the content container from its original parent
+        content.parentNode.removeChild(content);
+
+        var l = 'leaflet-';
+
+        // Create sidebar container
+        var container = this._container =
+            L.DomUtil.create('div', l + 'sidebar ' + this.options.position);
+
+        // Style and attach content container
+        L.DomUtil.addClass(content, l + 'control');
+        container.appendChild(content);
+
+        // Create close button and attach it if configured
+        if (this.options.closeButton) {
+            var close = this._closeButton =
+                L.DomUtil.create('a', 'close', container);
+            close.innerHTML = '&times;';
+        }
+
+        // -- initialize print button click handler
+        $(this._container).on('click', '.leaflet-control-hatbeinhoasidebar-printbtn', function () {
+
+            // adapted from http://www.codeproject.com/Messages/4756827/Does-not-work-if-you-have-JS-events-hooked-up.aspx
+            var toPrint = $("#bienHoaSidebar");
+
+            var body = $("body").detach();
+            document.body = document.createElement("body");
+            var clone = toPrint.clone();
+            $("body").html(clone.html());
+            // clone.appendTo();
+            // clone.show(); // In case the content was hidden
+            window.print();
+            $("html body").remove();
+            body.appendTo($("html"));
+
+        });
+
+    },
+
+    addTo: function (map) {
+        var container = this._container;
+        var content = this._contentContainer;
+
+        // Attach event to close button
+        if (this.options.closeButton) {
+            var close = this._closeButton;
+
+            L.DomEvent.on(close, 'click', this.hide, this);
+        }
+
+        L.DomEvent
+            .on(container, 'transitionend',
+                this._handleTransitionEvent, this)
+            .on(container, 'webkitTransitionEnd',
+                this._handleTransitionEvent, this);
+
+        // Attach sidebar container to controls container
+        var controlContainer = map._controlContainer;
+        controlContainer.insertBefore(container, controlContainer.firstChild);
+
+        this._map = map;
+		
+		map.on('click', this._runQuery, this);
+
+        // Make sure we don't drag the map when we interact with the content
+        var stop = L.DomEvent.stopPropagation;
+        var fakeStop = L.DomEvent._fakeStop || stop;
+        L.DomEvent
+            .on(content, 'contextmenu', stop)
+            .on(content, 'click', fakeStop)
+            .on(content, 'mousedown', stop)
+            .on(content, 'touchstart', stop)
+            .on(content, 'dblclick', fakeStop)
+            .on(content, 'mousewheel', stop)
+            .on(content, 'MozMousePixelScroll', stop);
+
+        return this;
+    },
+
+    removeFrom: function (map) {
+        //if the control is visible, hide it before removing it.
+        this.hide();
+
+        var content = this._contentContainer;
+
+        // Remove sidebar container from controls container
+        var controlContainer = map._controlContainer;
+        controlContainer.removeChild(this._container);
+
+        //disassociate the map object
+        this._map = null;
+
+        // Unregister events to prevent memory leak
+        var stop = L.DomEvent.stopPropagation;
+        var fakeStop = L.DomEvent._fakeStop || stop;
+        L.DomEvent
+            .off(content, 'contextmenu', stop)
+            .off(content, 'click', fakeStop)
+            .off(content, 'mousedown', stop)
+            .off(content, 'touchstart', stop)
+            .off(content, 'dblclick', fakeStop)
+            .off(content, 'mousewheel', stop)
+            .off(content, 'MozMousePixelScroll', stop);
+
+        L.DomEvent
+            .off(container, 'transitionend',
+                this._handleTransitionEvent, this)
+            .off(container, 'webkitTransitionEnd',
+                this._handleTransitionEvent, this);
+
+        if (this._closeButton && this._close) {
+            var close = this._closeButton;
+
+            L.DomEvent.off(close, 'click', this.hide, this);
+        }
+
+        return this;
+    },
+
+    isVisible: function () {
+        return L.DomUtil.hasClass(this._container, 'visible');
+    },
+
+    show: function () {
+        if (!this.isVisible()) {
+            L.DomUtil.addClass(this._container, 'visible');
+            if (this.options.autoPan) {
+                this._map.panBy([-this.getOffset() / 2, 0], {
+                    duration: 0.5
+                });
+            }
+            this.fire('show');
+        }
+    },
+
+    hide: function (e) {
+        if (this.isVisible()) {
+            L.DomUtil.removeClass(this._container, 'visible');
+            if (this.options.autoPan) {
+                this._map.panBy([this.getOffset() / 2, 0], {
+                    duration: 0.5
+                });
+            }
+
+            if (this._queryMapMarker)
+            {
+                this._map.removeLayer(this._queryMapMarker);
+            }
+
+            this.fire('hide');
+        }
+        if(e) {
+            L.DomEvent.stopPropagation(e);
+        }
+    },
+
+    toggle: function () {
+        if (this.isVisible()) {
+            this.hide();
+        } else {
+            this.show();
+        }
+    },
+
+    getContainer: function () {
+        return this._contentContainer;
+    },
+
+    getCloseButton: function () {
+        return this._closeButton;
+    },
+
+    setContent: function (content) {
+        this.getContainer().innerHTML = content;
+        return this;
+    },
+
+    getOffset: function () {
+        if (this.options.position === 'right') {
+            return -this._container.offsetWidth;
+        } else {
+            return this._container.offsetWidth;
+        }
+    },
+
+    _handleTransitionEvent: function (e) {
+        if (e.propertyName == 'left' || e.propertyName == 'right')
+            this.fire(this.isVisible() ? 'shown' : 'hidden');
+    },
+	
+	_runQuery: function(e) {
+		// e.latlng
+	    // L.Control.Measure is enabled and running. so don't run the query - just exit.
+	    if ($('.js-measuretasks').is(':visible')) {
+	        return true;
+	    }
+
+	    // -- remove map marker if it's already on the map
+	    if (this._queryMapMarker)
+	        this._map.removeLayer(this._queryMapMarker);
+
+	    
+
+	    this._queryMapMarker = L.marker(e.latlng);
+	    this._queryMapMarker.addTo(this._map);
+	    this._map.panTo(e.latlng);
+
+	    var html = "";
+	    // html += '<div class="leaflet-control-toc-title leaflet-control-hatbeinhoasidebar-title"><img src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.3/images/marker-icon.png"> Bien Hoa Assessment Report:</div>';	    
+	    html += '<div id="BienHoaSideBarContents"><center><img src="' + this.options.spinnerImageUrl + '"></center></div>';
+	    
+	    var extent = window.L.esri.Util.boundsToExtent(this._map.getBounds());
+	    var size = this._map.getSize();
+	    var imageDisplay = ""+size.x+","+ size.y+",96";
+	    var mapExtent = "" + extent.xmin + "," + extent.ymin + "," + extent.xmax + "," + extent.ymax + "";
+
+
+	    $.ajax({
+	        dataType: "html",
+	        url: this.options.ajaxUrl,
+            context: this,
+            data: {
+                lat: e.latlng.lat,
+                lng: e.latlng.lng,
+                pointReportLayerIds: this.options.pointReportLayer.options.layers.join(','),
+                imageDisplay: imageDisplay,
+                mapExtent: mapExtent
+            }
+	    })
+        .fail(function (jqXHR, textStatus, errorThrown) {            
+            var errHtml = '<div class="alert alert-danger" role="alert">' + textStatus + " - " + errorThrown + '. Please reload this page and try again.</div>';
+            $("#BienHoaSideBarContents").html(errHtml);
+        })
+        .done(function (data, textStatus, jqXHR) {
+            var rptHtml = "";
+            if (data.trim() != "") {
+                rptHtml += data;
+                rptHtml += '<br /><div><center><a class="btn btn-default leaflet-control-hatbeinhoasidebar-printbtn"><i class="glyphicon glyphicon-print"></i> print report</a></center></div><br/>';
+
+            }
+            else {
+                rptHtml += '<div class="well"><i class="glyphicon glyphicon-remove-circle"></i> <em>Nothing was found here to report on. Try clicking somewhere else.</em></div>';
+            }
+            /*
+            var reportObj = jQuery.parseJSON(data);
+
+            if (reportObj.error)
+            {
+                var errHtml = '<div class="alert alert-danger" role="alert">' + reportObj.error + '</div>';
+                $("#BienHoaSideBarContents").html(rptHtml);
+                return;
+            }
+
+            if (reportObj.DU != null)
+            {
+                $(".leaflet-control-hatbeinhoasidebar-title").html('<img src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.3/images/marker-icon.png"> Bien Hoa Assessment Report for DU ' + reportObj.DU.DU_ID + ' :');
+
+                rptHtml += this._renderDUReport(reportObj);
+
+            } // if DU was returned
+            else
+            {
+                rptHtml += this._renderPointClickedReport(e);                
+            }
+           
+            */
+            // rptHtml += data;
+
+            $("#BienHoaSideBarContents").html(rptHtml);
+        });
+	    
+		this.setContent(html);
+		this.show();
+	},
+
+	_renderDUReport: function(obj)
+	{
+	    var rptHtml = "";
+	    rptHtml += "<strong>DU " + reportObj.DU.DU_ID + " Soil and Sediment Results</strong><br />";
+	    rptHtml += this._renderTEQByDepthTable(reportObj.DU);
+
+	    rptHtml += this._renderPropertiesTable(reportObj.DU);
+
+	    if (reportObj.SubDUs != null && reportObj.SubDUs && reportObj.SubDUs.length > 0) {
+	        for (var i = 0; i < reportObj.SubDUs.length; i++) {
+	            var subDU = reportObj.SubDUs[i];
+	            rptHtml += "<strong>Sub-DU " + subDU.DU_ID + " - " + subDU.subDU + " Soil and Sediment Results</strong><br />";
+	            rptHtml += this._renderTEQByDepthTable(subDU);
+	            rptHtml += this._renderPropertiesTable(subDU);
+	        }
+	    }
+	    var noFish = false;
+	    var noWater = false;
+	    if (reportObj.FishSamplesInDU != null && reportObj.FishSamplesInDU && reportObj.FishSamplesInDU.length > 0) {
+	        rptHtml += "<strong>" + reportObj.FishSamplesInDU.length + " Fish Samples in DU " + reportObj.DU.DU_ID + ":</strong><br />";
+	        for (var i = 0; i < reportObj.FishSamplesInDU.length; i++) {
+	            var fish = reportObj.FishSamplesInDU[i];
+	            rptHtml += "<strong><em>Fish " + fish.DESCRIPTION + " Sample " + fish.Sample_ID + "</em></strong><br />";
+	            rptHtml += this._renderPropertiesTable(fish);
+	        }
+	    }
+	    else
+	        noFish = true;
+
+	    if (reportObj.WaterSamplesInDU != null && reportObj.WaterSamplesInDU && reportObj.WaterSamplesInDU.length > 0) {
+	        rptHtml += "<strong>" + reportObj.WaterSamplesInDU.length + " Water Samples in DU " + reportObj.DU.DU_ID + ":</strong><br />";
+	        for (var i = 0; i < reportObj.WaterSamplesInDU.length; i++) {
+	            var water = reportObj.WaterSamplesInDU[i];
+	            rptHtml += "<strong><em>Water Sample " + water.OBJECTID + "</em></strong><br />";
+	            rptHtml += this._renderPropertiesTable(water);
+	        }
+	    }
+	    else
+	        noWater = true;
+
+	    if (noFish && noWater) {
+	        rptHtml += "<strong>Fish &amp; Water Samples in DU " + reportObj.DU.DU_ID + ":</strong><br />";
+	        rptHtml += "<div><em>No fish or water samples are available in DU " + reportObj.DU.DU_ID + "</em></div>";
+	    }
+	    else if (noFish) {
+	        rptHtml += "<strong>Fish Samples in DU " + reportObj.DU.DU_ID + ":</strong><br />";
+	        rptHtml += "<div><em>No fish samples are available in DU " + reportObj.DU.DU_ID + "</em></div>";
+	    }
+	    else if (noWater) {
+	        rptHtml += "<strong>Water Samples in DU " + reportObj.DU.DU_ID + ":</strong><br />";
+	        rptHtml += "<div><em>No water samples are available in DU " + reportObj.DU.DU_ID + "</em></div>";
+	    }
+
+	    return rptHtml;
+	},
+
+	_renderPointClickedReport: function(e)
+	{
+        
+	    var rptHtml = '<div id="BienHoaSideBarContentsClickedReport"><center><img src="' + this.options.spinnerImageUrl + '"></center></div>';
+	    var layersCmd = 'all:' + this.options.pointReportLayer.options.layers.join(',');
+	    var tolerancePx = 5; // default is 2
+	    this.options.pointReportLayer.identify().on(this._map).at(e.latlng).layers(layersCmd).tolerance(tolerancePx).run($.proxy(function (error, featureCollection) {
+	        $('#feature-query-loading-icon').hide();
+	        if (error) {
+	            // BienHoaSideBarContentsClickedReport
+	        }
+	        if (featureCollection.features.length === 0) {
+	            return false;
+	        }
+
+	        $("#BienHoaSideBarContentsClickedReport").html("click report");
+	    }));
+
+
+
+
+	    // rptHtml += '<div class="well"><i class="glyphicon glyphicon-remove-circle"></i> <em>Nothing was found here to report on. Try clicking somewhere else.</em></div>';
+	    return rptHtml;
+	},
+
+	_renderPropertiesTable: function(obj)
+	{
+	    var f = obj;
+	    popupHtml = '<table class="table table-condensed table-bordered " border="1" cellpadding="2" cellspacing="2">';
+	    for (var key in f) {
+	        var keyUpper = key.toUpperCase();
+	        var keyVal = f[key];
+
+	        var isTEQDisplay = false;
+	        if (keyUpper.indexOf("Total_TEQ_".toUpperCase()) == 0 || keyUpper == "Max_TEQ".toUpperCase()
+                || keyUpper == "TEQLimit".toUpperCase() || keyUpper == "Exceeds".toUpperCase() || keyUpper == "DU_Id".toUpperCase()
+                || keyUpper == "Sample_Type".toUpperCase())
+	            isTEQDisplay = true;
+
+	        if (isTEQDisplay == false && keyVal != 'NoData' && keyVal != 'Null' && key != 'GEOMETRY' && keyUpper != 'SHAPE' && keyVal != null
+                && keyUpper != 'SHAPE_Length'.toUpperCase() && keyUpper != 'OBJECTID' && keyUpper != 'JoinField'.toUpperCase() && keyUpper != 'fid'.toUpperCase()
+                && keyUpper != 'Phase'.toUpperCase()) {
+	            var key_display = key;
+	            var val_display = f[key];
+
+	            if (key_display.toUpperCase() == "SHAPE_Area".toUpperCase()) {
+	                key_display = "Area (m<sup>2</sup>)";
+	                // remove decimals
+	                var parts = val_display.toString().split(".");
+	                val_display = Number(parts[0]).toLocaleString() + " m<sup>2</sup>";
+	            }
+
+	            key_display = key_display.replace(/_/g, " ");
+
+	            popupHtml += '<tr><td>' + key_display + '</td><td>' + val_display + '</td></tr>'
+	        }
+	    } // for
+	    popupHtml += "</table>";
+
+	    
+
+	    return popupHtml;
+	},
+
+	_renderTEQByDepthTable: function(obj)
+	{
+	    var TEQLimit = obj.TEQLimit;
+	    var ret = '<table class="table table-condensed table-bordered " border="1" cellpadding="2" cellspacing="2">';
+
+	    ret += "<tr><td>TEQ Limit</td><td>" + TEQLimit + "</td></tr>";
+	    ret += this._renderTEQTableRow(obj, "Max_TEQ", "Maximum TEQ", TEQLimit, false);	    
+	    ret += this._renderTEQTableRow(obj, "Total_TEQ_0_15", "0 - 15cm", TEQLimit, true);
+	    ret += this._renderTEQTableRow(obj, "Total_TEQ_0_30", "0 - 30cm", TEQLimit, true);
+	    ret += this._renderTEQTableRow(obj, "Total_TEQ_0_100", "0 - 100cm", TEQLimit, true);
+	    ret += this._renderTEQTableRow(obj, "Total_TEQ_15_30", "15 - 30cm", TEQLimit, true);
+	    ret += this._renderTEQTableRow(obj, "Total_TEQ_30_45", "30 - 45cm", TEQLimit, true);
+	    ret += this._renderTEQTableRow(obj, "Total_TEQ_30_60", "30 - 60cm", TEQLimit, true);
+	    ret += this._renderTEQTableRow(obj, "Total_TEQ_60_90", "60 - 90cm", TEQLimit, true);
+	    ret += this._renderTEQTableRow(obj, "Total_TEQ_90_120", "90 - 120cm", TEQLimit, true);
+	    ret += this._renderTEQTableRow(obj, "Total_TEQ_120_150", "120 - 150cm", TEQLimit, true);
+	    ret += this._renderTEQTableRow(obj, "Total_TEQ_150_180", "150 - 180cm", TEQLimit, true);
+	    ret += this._renderTEQTableRow(obj, "Total_TEQ_180_210", "180 - 210cm", TEQLimit, true);
+	    ret += this._renderTEQTableRow(obj, "Total_TEQ_210_240", "210 - 240cm", TEQLimit, true);
+	    ret += this._renderTEQTableRow(obj, "Total_TEQ_240_270", "240 - 270cm", TEQLimit, true);
+	    ret += this._renderTEQTableRow(obj, "Total_TEQ_270_300", "270 - 300cm", TEQLimit, true);
+	    ret += this._renderTEQTableRow(obj, "Total_TEQ_300_330", "300 - 330cm", TEQLimit, true);
+	    ret += this._renderTEQTableRow(obj, "Total_TEQ_300_330", "330 - 390cm", TEQLimit, true);
+
+	    ret += '</table>';
+	    	    
+	    return ret;
+	    
+	},
+
+	_renderTEQTableRow: function(obj, propName, label, TEQLimit, highlightValuesOverLimit)
+	{
+	    var ret = "";
+	    if (obj.hasOwnProperty(propName) && obj[propName] != null )
+	    {
+	        var valDisplay = "";
+	        var rowClass= "";
+	        if (obj[propName] != "")
+	        {
+	            var numVal = Number(parseFloat(obj[propName]));
+	            if (highlightValuesOverLimit && numVal > TEQLimit)
+	                rowClass = "danger";
+	            valDisplay = numVal.toFixed(1);
+	        }
+	        
+	        ret = '<tr class="'+rowClass+'">';
+	        ret += "<td>";
+	        ret += label;
+	        ret += "</td>";
+	        ret += "<td>";
+	        ret += valDisplay;
+	        ret += "</td>";
+            ret += "</tr>"
+	    }
+	    return ret;
+	}
+
+});
+
+L.control.hatbienhoasidebar = function (placeholder, options) {
+    return new L.Control.hatBienHoaSidebar(placeholder, options);
+};

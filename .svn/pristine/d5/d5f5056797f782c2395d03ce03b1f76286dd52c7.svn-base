@@ -1,0 +1,127 @@
+﻿{
+    "urlParameter": "YMMFire",
+    "siteSpecificLayoutFileName": "_YMMFireLayout",
+    "requiresAuthentication": false,
+    "siteSpecificCSS": "YMMFire.css",
+    "DisplayTitle": "YMMFire",
+    "siteSpecificLayoutFileName": "_YMMFireLayout",
+    "requiresAuthentication": false,
+    "userNamesWithAccess": [
+        "jsuwala"
+    ],
+    "mapControls": [
+        "tableOfContents",
+        "fullScreen",
+        "panelManager",
+        "redliner"
+    ],
+    "hasSiteSpecificCssFileName": true,
+    "siteSpecificCssFileName": "YMMFire.css",
+    "hasSiteSpecificMapScriptsAreaControl": true,
+    "siteSpecificMapScriptsAreaControl": "_YMMFire_MapScriptsAreaControl",
+    "hasSiteSpecificTopNavigationControl": true,
+    "siteSpecificTopNavigationControl": "_YMMFire_TopNavigation",
+    "loggedOutMessage": "You have been logged out of the Fort McMurray Fire Information MapMap.",
+    "loggedOutHelpMessage": "If you have any questions or comments about the system you have used, please contact <a href=\"mailto:hcp@hatfieldgroup.com\">Hatfield Consultants</a>",
+
+    "mapCenter": {
+        "lat": 56.726380,
+        "lng": -111.380341
+    },
+    "initialMapZoomLevel": 11,
+    "hatfieldTileSubdomains": [
+        "maps",
+        "maptile1",
+        "maptile2",
+        "maptile3" // refers to {s} in urlFormat parameters in layers
+    ],
+    "layers": [
+        // define ordering here
+        {
+            "displayName": "Municipality Basemap (RMWB)",
+            "type": "ESRITiledMapLayerMapLayer",
+            "urlFormat": "http://gis-portal-api.elasticbeanstalk.com/arcgis/rest/services/basemaps/vectorBasemap/MapServer",
+            "detectRetina": true,
+            "opacity": 1.0,
+            "useCors": false,
+            "maxNativeZoom": 20,
+            "maxZoom": 20,
+            "InitiallyVisible": false,
+            "RequiresAuthentication": false
+        },
+        {
+            "displayName": "Hybrid Basemap (RMWB)",
+            "type": "ESRITiledMapLayerMapLayer",
+            "urlFormat": "http://gis-portal-api.elasticbeanstalk.com/arcgis/rest/services/basemaps/hybridBasemap/MapServer",
+            "detectRetina": true,
+            "opacity": 1.0,
+            "useCors": false,
+            "maxNativeZoom": 20,
+            "maxZoom": 20,
+            "InitiallyVisible": false,
+            "RequiresAuthentication": false
+       },
+       {
+            "displayName": "May 3, 2016 (30m/Landsat 8)",
+            "type": "WMSLayer",
+            "urlFormat": "http://vista-geo-service.de/geoserver/Vista_Default_Workspace/wms?service=WMS",
+            "WMSLayerNames": [
+                "L8_573N1095W160505"
+            ],
+            "detectRetina": true,
+            "opacity": 1.0,
+            "useCors": false,
+            "maxNativeZoom": 20,
+            "maxZoom": 20,
+            "InitiallyVisible": false,
+            "Transparent": true,
+            "RequiresAuthentication": false
+        },
+        {
+            "displayName": "May 4, 2016 (30m/Landsat 7)",
+            "type": "WMSLayer",
+            "urlFormat": "http://vista-geo-service.de/geoserver/Vista_Default_Workspace/wms?service=WMS",
+            "WMSLayerNames": [
+                "L7_559N1118W160504"
+            ],
+            "detectRetina": true,
+            "opacity": 1.0,
+            "useCors": false,
+            "maxNativeZoom": 20,
+            "maxZoom": 20,
+            "InitiallyVisible": false,
+            "Transparent": true,
+            "RequiresAuthentication": false
+        },
+        {
+            "displayName": "May 5, 2016 (1m/Terrabella)",
+            "type": "TileLayer",
+            "attributionHtml": "Source: <a href=\"https://terrabella.google.com/\">Terra Bella</a>, License: CC-BY-4.0",
+            "url": "https://storage.googleapis.com/crisis-imagery-skybox/s01_20160505T185858Z_vis1c/{z}/{x}/{y}",
+            "InitiallyVisible": false
+        },
+        {
+            "displayName": "May 6, 2016 (1m/Terrabella)",
+            "type": "TileLayer",
+            "attributionHtml": "Source: <a href=\"https://terrabella.google.com/\">Terra Bella</a>, License: CC-BY-4.0",
+            "url": "https://storage.googleapis.com/crisis-imagery-skybox/s01_20160506T190112Z_vis1/{z}/{x}/{y}",
+            "InitiallyVisible": false
+        },
+        {
+            "displayName": "May 5, 2016 (30cm/WorldView-3)",
+            "type": "WMSLayer",
+            "urlFormat": "http://maps.hatfieldgroup.com/geoserver/FMM_wildfire/wms?service=WMS",
+            "WMSLayerNames": [
+                "FMM_wildfire:WV3_20160505_30cm_pansharp"
+            ],
+            "detectRetina": true,
+            "opacity": 1.0,
+            "useCors": false,
+            "maxNativeZoom": 20,
+            "maxZoom": 20,
+            "InitiallyVisible": true,
+            "Transparent": true,
+            "RequiresAuthentication": false
+        }
+    ]
+}

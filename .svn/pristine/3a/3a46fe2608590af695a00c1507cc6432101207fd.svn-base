@@ -1,0 +1,100 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using System.IO;
+
+namespace Hatfield.WebMap.Repositories
+{
+    public abstract class BaseJSONDataFileRepository<T>
+    {
+        protected List<T> Deserialize(string json)
+        {
+            Newtonsoft.Json.JsonSerializerSettings serializeSettings = new Newtonsoft.Json.JsonSerializerSettings();
+            serializeSettings.TypeNameHandling = Newtonsoft.Json.TypeNameHandling.All;
+            serializeSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore;
+            var ret = Newtonsoft.Json.JsonConvert.DeserializeObject<List<T>>(json, serializeSettings);
+            return ret;
+        }
+
+        protected string Serialize(List<T> item)
+        {
+            Newtonsoft.Json.JsonSerializerSettings serializeSettings = new Newtonsoft.Json.JsonSerializerSettings();
+            serializeSettings.TypeNameHandling = Newtonsoft.Json.TypeNameHandling.All;
+            serializeSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore;
+            var json = Newtonsoft.Json.JsonConvert.SerializeObject(item, serializeSettings);
+            return json;
+        }
+
+        public virtual string GetDataFileLocationOnDisk()
+        {
+            throw new Exception("You must create a GetDataFileLocationOnDisk function in your implementation class!");
+        }
+
+        public List<T> FetchAll()
+        {
+            List<T> ret = new List<T>();
+            
+            string dataFileLocation = GetDataFileLocationOnDisk();
+            
+            if (File.Exists(dataFileLocation))
+            {
+                string json = File.ReadAllText(dataFileLocation, System.Text.Encoding.UTF8);
+                ret.AddRange(Deserialize(json));
+            }
+            return ret;
+        }
+
+        public void Save(List<T> itemsToSave)
+        {
+            
+            string contents = Serialize(itemsToSave);
+
+            string dataFileLocation = GetDataFileLocationOnDisk();
+
+            File.WriteAllText(dataFileLocation, contents, System.Text.Encoding.UTF8);
+        }
+
+        /// <summary>
+        /// returns default(T) if could not find item
+        /// </summary>
+        /// <param name="findIndexStatement"></param>
+        /// <returns></returns>
+        public T FetchOne(Predicate<T> findIndexStatement)
+        {
+            List<T> list = FetchAll();
+            var index = list.FindIndex(findIndexStatement);
+            if (index >= 0)
+                return list[index];
+            
+            return default(T);
+        }
+
+        public void SaveOne(T itemToSave, Predicate<T> findIndexStatement)
+        {
+            List<T> list = FetchAll();
+            var index = list.FindIndex(findIndexStatement);
+            if (index < 0)
+                list.Add(itemToSave);
+            else
+                list[index] = itemToSave;
+
+            Save(list);
+        }
+
+        public T DeleteOne(Predicate<T> findIndexStatement)
+        {
+            List<T> list = FetchAll();
+            var index = list.FindIndex(findIndexStatement);
+            if (index >= 0)
+            {
+                var ret = list[index];
+                list.RemoveAt(index);
+                Save(list);
+                return ret;
+            }
+            return default(T);
+        }
+        
+    }
+}

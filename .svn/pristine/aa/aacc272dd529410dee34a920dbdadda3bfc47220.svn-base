@@ -1,0 +1,483 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using System.Web.Mvc;
+using System.Web.Security;
+using System.Threading.Tasks;
+
+namespace Hatfield.WebMap.Controllers
+{
+    public class HomeController : Controller
+    {
+        protected Repositories.SiteRepository siteRepo;
+
+        public HomeController()
+        {
+            siteRepo = new Repositories.SiteRepository();
+        }
+
+        
+        public ActionResult Index(string site, string view)
+        {
+
+            Domain.WebMappingSite reqSite = siteRepo.GetByUrlParameter(site, view: view);
+            if (reqSite == null)
+                return new HttpNotFoundResult("Web mapping site " + site + " not found");
+            if (reqSite.NeedsToRedirectToLoginPage())
+                return reqSite.RedirectToLoginPageAction();
+
+            if (reqSite.HasLayerOfType<Domain.Layers.ESRIDynamicMapLayer>() || reqSite.HasLayerOfType<Domain.Layers.ESRITiledMapLayerMapLayer>())
+            {
+                ViewBag.token = getArcGISToken(Domain.TokenMode.ClientToServer);
+            }
+            
+            ViewBag.site = reqSite;
+            ViewBag.currentViewName = view;
+            return View();
+        }
+
+        public ActionResult Dashboard(string site)
+        {
+            Domain.WebMappingSite reqSite = siteRepo.GetByUrlParameter(site);
+            if (reqSite == null)
+                return new HttpNotFoundResult("Web mapping site " + site + " not found");
+            if (reqSite.NeedsToRedirectToLoginPage())
+                return reqSite.RedirectToLoginPageAction();
+
+            ViewBag.token = getArcGISToken(Domain.TokenMode.ClientToServer);
+            ViewBag.site = reqSite;
+            ViewBag.currentViewName = "";
+            return View();
+        }
+
+        public ActionResult GeoServerAuthKey(string site, string authkey)
+        {
+            // We have a magic auth key that always returns "admin" as the username. using this we can make localhost debugging easier to do.
+            Guid magicAdminAuthKey = Repositories.GeoServerAuthKeyRepository.MagicAdminAuthKey;
+
+            // -- note: the site is not always going to be provided, so do not rely on it!
+            // string logFilename = Server.MapPath("~/App_Data/tmpwriteable/mvcauthkeylog.txt");
+            
+
+            Guid authKeyGuid;
+            string ret = "";
+            if (Guid.TryParse(authkey, out authKeyGuid))
+            {
+                if (authKeyGuid == magicAdminAuthKey)
+                    ret = "admin";
+                else
+                {
+                    var repo = new Repositories.GeoServerAuthKeyRepository();
+                    var item = repo.FetchOne(x => x.AuthKey == authKeyGuid);
+                    if (item != null && !item.IsExpired)
+                        ret = item.GeoServerUsername;
+                }
+            }
+            // System.IO.File.AppendAllText(logFilename, string.Format("[{0}] GeoServerAuthKey site={1}, authkey={2}, ret={3}" + Environment.NewLine, DateTime.Now.ToLongTimeString(), site, authkey, ret));
+            
+
+            return Content(ret);
+        }
+
+
+        public class LegendItem
+        {
+            public int LayerId;
+            public string label;
+            public string url;
+            public string contentType;
+            public List<string> values;
+
+            public LegendItem()
+            {
+                LayerId = Int32.MinValue;
+                values = new List<string>();
+                label = "";
+                url = "";
+                contentType = "";
+            }
+
+            public static LegendItem parse (Newtonsoft.Json.Linq.JObject layerObj, int legendIndex)
+            {
+                LegendItem ret = new LegendItem();
+                ret.LayerId = Convert.ToInt32(layerObj.GetValue("layerId").ToString());
+                var legendObj = (layerObj.GetValue("legend") as Newtonsoft.Json.Linq.JArray)[legendIndex] as Newtonsoft.Json.Linq.JObject;
+                ret.label = legendObj.GetValue("label").ToString();
+                ret.label = ret.label.Replace("<", "[");
+                ret.label = ret.label.Replace(">", "]");
+                ret.url = legendObj.GetValue("url").ToString();
+                ret.contentType = legendObj.GetValue("contentType").ToString();
+                if (legendObj.GetValue("values") != null)
+                {
+                    var valsArr = legendObj.GetValue("values") as Newtonsoft.Json.Linq.JArray;
+                    foreach (var v in valsArr)
+                        ret.values.Add(v.ToString());
+                }
+                return ret;
+            }
+
+            public static List<LegendItem> parse(Newtonsoft.Json.Linq.JObject jsonLegendInfoObj)
+            {
+                List<LegendItem> ret = new List<LegendItem>();
+                if (jsonLegendInfoObj.GetValue("layers") != null)
+                {
+                    foreach (var layerObj in jsonLegendInfoObj.GetValue("layers") as Newtonsoft.Json.Linq.JArray)
+                    {
+                        int i = 0;
+                        foreach (var legObj in (layerObj as Newtonsoft.Json.Linq.JObject).GetValue("legend"))
+                        {
+
+                            LegendItem l = parse(layerObj as Newtonsoft.Json.Linq.JObject, i);
+                            ret.Add(l);
+                            i++;
+                        }
+                    }
+                }
+                else
+                {
+                    Console.Write("No legend layers to parse");
+                }
+                return ret;
+            }
+
+            public static List<LegendItem> GetByLayerId(string layerId,List<LegendItem> haystack )
+            {
+                List<LegendItem> ret = new List<LegendItem>();
+                foreach(var item in haystack)
+                {
+                    if (item.LayerId.ToString() == layerId)
+                    {
+                        ret.Add(item);
+                    }
+                }
+                return ret;
+            }
+        }
+
+        public Dictionary<string, string> DownloadUrlsInParallel(Dictionary<string, Uri> urisToDownload)
+        {
+            Dictionary<string, string> ret = new Dictionary<string,string>();
+
+            Parallel.ForEach(urisToDownload.Keys, (string key) => {
+                Uri url = urisToDownload[key];
+                    if (url.ToString().ToLower().StartsWith("http://null"))
+                    {
+                        lock(ret)
+                        {
+                            ret[key] = "";
+                        }
+                    }
+                        
+
+                    using (var client = new System.Net.WebClient())
+                    {
+
+                        Console.WriteLine("starting to download {0}", url);
+                        client.Encoding = System.Text.Encoding.UTF8;
+                        string result = client.DownloadString(url);
+                        Console.WriteLine("finished downloading {0}", url);
+                        lock (ret)
+                        {
+                            ret[key] = result;
+                        }
+                    }
+
+                
+            }); // Parallel.Foreach
+
+            return ret;            
+        }
+
+        public static Uri getEsriServiceUrl(Domain.IMapLayer layer, string appendToUrlPath, Domain.TokenMode tokenMode, string returnFormat = "json")
+        {
+
+            if (layer.Url.EndsWith("MapServer", StringComparison.CurrentCultureIgnoreCase) || layer.Url.EndsWith("ImageServer", StringComparison.CurrentCultureIgnoreCase))
+            {
+                System.Text.StringBuilder url = new System.Text.StringBuilder(layer.Url);
+                if (!string.IsNullOrWhiteSpace(appendToUrlPath))
+                    url.Append(appendToUrlPath);
+                url.Append("?f=" + returnFormat);
+                if (layer.RequiresAuthentication)
+                    url.Append("&token=" + layer.getAuthToken(tokenMode));
+
+                return new Uri(url.ToString());
+            }
+            else
+                throw new ArgumentException("Invalid URL format - url must end in MapServer or ImageServer: " + layer.Url);
+        }
+
+
+        
+        [HttpGet]
+        public ActionResult GetACITreeTOCJsonData(string site, string v = "", string hashLayers = "")
+        {
+            ViewBag.currentViewName = v;
+
+            if (v.IndexOf("?hashLayers", StringComparison.CurrentCultureIgnoreCase) >= 0)
+            {
+                v = v.Substring(0, v.IndexOf("?hashLayers", StringComparison.CurrentCultureIgnoreCase));
+            }
+           
+
+            Domain.WebMappingSite reqSite;
+
+            if (! string.IsNullOrEmpty(v))
+            {
+                reqSite = siteRepo.GetByUrlParameter(site, view: v);
+            }
+            else
+            {
+                reqSite = siteRepo.GetByUrlParameter(site);
+            }
+
+            if (reqSite == null)
+                return Content("{ error: \"Web Mapping site not found.\"}", "application/json");
+            
+            if (reqSite.NeedsToRedirectToLoginPage())
+                return Content("{ error: \"You need to login to access this resource.\"}", "application/json");
+            
+
+            Dictionary<string, Uri> urisToDownload = new Dictionary<string, Uri>();
+            for (var layerIndex = 0; layerIndex < reqSite.Layers.Count(); layerIndex++)
+            {
+                var layer = reqSite.Layers[layerIndex];
+                if (layer is Domain.Layers.ESRIDynamicMapLayer || layer is Domain.Layers.ESRITiledMapLayerMapLayer)
+                {
+                    Uri layerInfoUrl = getEsriServiceUrl(layer, "", Domain.TokenMode.ServerToServer); //  new Uri("https://maps.hatfieldgroup.com/maps/rest/services/USAID6185_testing/USAID_BienHoa_20150717_epsg3857/MapServer?f=pjson&token=" + getToken());
+                    Uri legendUrl = getEsriServiceUrl(layer, "/legend", Domain.TokenMode.ServerToServer); // new Uri("https://maps.hatfieldgroup.com/maps/rest/services/USAID6185_testing/USAID_BienHoa_20150717_epsg3857/MapServer/legend?f=pjson&token=" + getToken());
+                    var uris = new List<Uri>();
+                    urisToDownload.Add(layerIndex.ToString()+"_layerInfo", layerInfoUrl);
+                    urisToDownload.Add(layerIndex.ToString() + "_legend", legendUrl);                    
+                }
+            }
+
+            // Uri layerInfoUrl = new Uri("https://maps.hatfieldgroup.com/maps/rest/services/USAID6185_testing/USAID_BienHoa_20150717_epsg3857/MapServer?f=pjson&token=" + getToken());
+            // Uri legendUrl = new Uri("https://maps.hatfieldgroup.com/maps/rest/services/USAID6185_testing/USAID_BienHoa_20150717_epsg3857/MapServer/legend?f=pjson&token=" + getToken());
+
+            var res = DownloadUrlsInParallel(urisToDownload);
+
+            System.Diagnostics.Debug.WriteLine(reqSite.Layers[0]);
+
+            List<Domain.aciTree.aciTreeNode> linearNodes = new List<Domain.aciTree.aciTreeNode>();
+            for (var layerIndex = 0; layerIndex < reqSite.Layers.Count(); layerIndex++)
+            {
+                if (reqSite.Layers[layerIndex] is Domain.Layers.NodeLayer)
+                {
+
+                }
+                else if (reqSite.Layers[layerIndex] is Domain.Layers.TileLayer || reqSite.Layers[layerIndex] is Domain.Layers.WMSLayer || reqSite.Layers[layerIndex] is Domain.Layers.GoogleMapsLayer)
+                {
+                    var treeNode = new Domain.aciTree.aciTreeNode() { id = "node" + layerIndex.ToString(), label = reqSite.Layers[layerIndex].DisplayName };
+                    treeNode._isGroupNode = false;
+                    treeNode._maplayerindex = layerIndex;
+                    treeNode._parent_id = "#";
+                    if (reqSite.Layers[layerIndex].InitiallyVisible || hashLayers.Contains(layerIndex.ToString()))
+                    {
+                        treeNode._checked = true;
+                        // treeNode.state.opened = true;
+                    }
+                    linearNodes.Add(treeNode);
+                }
+                else if (reqSite.Layers[layerIndex] is Domain.Layers.ESRIDynamicMapLayer || reqSite.Layers[layerIndex] is Domain.Layers.ESRITiledMapLayerMapLayer)
+                {
+                    // string jsonLayerInfo = new System.Net.WebClient().DownloadString(layerInfoUrl);
+                    // string jsonLegendInfo = new System.Net.WebClient().DownloadString(legendUrl);
+                    string jsonLayerInfo = res[layerIndex.ToString()+"_layerInfo"];
+                    string jsonLegendInfo = res[layerIndex.ToString() + "_legend"];
+
+                    Newtonsoft.Json.Linq.JObject jsonLayerInfoObj = Newtonsoft.Json.JsonConvert.DeserializeObject(jsonLayerInfo) as Newtonsoft.Json.Linq.JObject;
+                    Newtonsoft.Json.Linq.JObject jsonLegendInfoObj = Newtonsoft.Json.JsonConvert.DeserializeObject(jsonLegendInfo) as Newtonsoft.Json.Linq.JObject;
+
+
+                    if (jsonLayerInfoObj.GetValue("error") != null && jsonLegendInfoObj.GetValue("error") != null)
+                    {
+                        var e = jsonLayerInfoObj.GetValue("error") as Newtonsoft.Json.Linq.JObject;
+                        var treeNode = new Domain.aciTree.aciTreeNode() { id = "#", label = e.GetValue("message").ToString() };
+                        
+                        linearNodes.Add(treeNode);
+                    }
+                    else
+                    {
+                        // no error
+                        if (jsonLayerInfoObj.GetValue("layers") != null)
+                        {
+                            // it's a DynamicMapLayer
+                            List<LegendItem> legendItems = LegendItem.parse(jsonLegendInfoObj);
+                            foreach (var l in jsonLayerInfoObj.GetValue("layers") as Newtonsoft.Json.Linq.JArray)
+                            {
+                                var lObj = l as Newtonsoft.Json.Linq.JObject;
+                                var dynamicLayers = Domain.aciTree.aciTreeNode.ParseDynamicMapLayerFromJson(lObj, reqSite.Layers[layerIndex], layerIndex, legendItems);
+                                linearNodes.AddRange(dynamicLayers);
+                            } // foreach
+                        }
+                        else
+                        {
+                            // parse imageserver metadata
+                            var treeNode = new Domain.aciTree.aciTreeNode();
+                            treeNode.id = "node" + layerIndex.ToString();
+                            treeNode.label = jsonLayerInfoObj.GetValue("name").ToString();
+                            if (treeNode.label.IndexOf("/") >= 0)
+                            {
+                                string[] textParts = treeNode.label.Split(new char[] { '/' });
+                                treeNode.label = textParts[1];
+                            }
+
+                            if (reqSite.Layers[layerIndex] is Domain.Layers.ESRITiledMapLayerMapLayer)
+                                treeNode.label = (reqSite.Layers[layerIndex] as Domain.Layers.ESRITiledMapLayerMapLayer).DisplayName;
+
+                            if (reqSite.Layers[layerIndex].InitiallyVisible)
+                            {
+                                treeNode._checked = true;
+                                // treeNode.state.opened = true;
+                            }
+
+                            treeNode._maplayerindex = layerIndex;
+
+                            treeNode._parent_id = "#";
+
+                            treeNode._isGroupNode = false;
+                            //if (layerIndex == 1)
+                            linearNodes.Add(treeNode);
+
+
+                        }
+                    }
+                } // if is ESRI layer
+            } // for each leaflet layer
+            var tree = Domain.aciTree.aciTreeNode.BuildAndSortTreeAndGetRootNodes(linearNodes, reqSite);
+            string ret = Newtonsoft.Json.JsonConvert.SerializeObject(tree.ToArray().Reverse());
+            return Content(ret, "application/json");
+
+            
+
+        } // GetACITreeTOCJsonData
+
+
+
+
+        public static bool SessionTokenHasExpired(Domain.TokenMode mode)
+        {
+            if (System.Web.HttpContext.Current.Session["ArcGISTokenExpiry" + mode.ToString()] != null)
+            {
+                DateTime tokenExpiry = Convert.ToDateTime(System.Web.HttpContext.Current.Session["ArcGISTokenExpiry" + mode.ToString()]);
+                return tokenExpiry < DateTime.UtcNow;
+            }
+            else
+            {
+                return true;
+            }
+        }
+
+        public static string getArcGISToken(Domain.TokenMode mode)
+        {
+            string token = "";
+
+            if (System.Web.HttpContext.Current.Session["ArcGISToken" + mode.ToString()] == null || SessionTokenHasExpired(mode))
+            {
+                var tokenSvc = new Domain.TokenAuthService();
+                var tokenInfo = tokenSvc.getLayerAuthToken(mode);
+                token = tokenInfo.Item1;
+                System.Web.HttpContext.Current.Session["ArcGISToken" + mode.ToString()] = tokenInfo.Item1;
+                System.Web.HttpContext.Current.Session["ArcGISTokenExpiry" + mode.ToString()] = tokenInfo.Item2;
+
+                int timeout_minutes = Convert.ToInt32(Math.Round(new TimeSpan(tokenInfo.Item2.Ticks - DateTime.UtcNow.Ticks).TotalMinutes));
+                if (timeout_minutes > 10)
+                {
+                    System.Web.HttpContext.Current.Session.Timeout = timeout_minutes - 10;
+                }
+            }
+            else
+            {
+                token = System.Web.HttpContext.Current.Session["ArcGISToken" + mode.ToString()].ToString();
+            }
+            return token;
+        }
+
+        
+
+
+
+        public ActionResult Login(string site)
+        {
+            Domain.WebMappingSite reqSite = siteRepo.GetByUrlParameter(site);
+            if (reqSite == null)
+                return new HttpNotFoundResult("Web mapping site " + site + " not found");
+
+            ViewBag.site = reqSite;
+            return View();
+        }
+
+        [HttpPost]
+        public ActionResult Login(string site, ViewModels.LoginModel user, string returnUrl)
+        {
+            Domain.WebMappingSite reqSite = siteRepo.GetByUrlParameter(site);
+            if (reqSite == null)
+                return new HttpNotFoundResult("Web mapping site " + site + " not found");
+
+            ViewBag.site = reqSite;
+
+            if (ModelState.IsValid)
+            {
+
+                if (System.Web.Security.Membership.ValidateUser(user.UserName, user.Password))
+                {
+                    var u = new Repositories.UserRepository().FetchAll().Where(x => x.Username.ToUpper() == user.UserName.Trim().ToUpper()).FirstOrDefault();
+                    FormsAuthentication.SetAuthCookie(user.UserName, true);
+
+                    if(reqSite.RedirectToDashboardAfterLogin)
+                    {
+                        return RedirectToAction("Dashboard", "Home");
+                    }
+
+                    if (u != null && u.RedirectToDefaultSiteUponLogin && ! string.IsNullOrEmpty(u.DefaultSiteUrlParameter))
+                    {
+                        return RedirectToAction("Index", "Home", new { site = u.DefaultSiteUrlParameter });
+                    }
+                    
+                    else if (Url.IsLocalUrl(returnUrl) && returnUrl.Length > 1 && returnUrl.StartsWith("/") && !returnUrl.StartsWith("//") && !returnUrl.StartsWith("/\\"))
+                    {
+                        return Redirect(returnUrl);
+                    }
+                    else
+                    {
+                        return RedirectToAction("Index", "Home");
+                    }
+                }
+                else
+                {
+                    ModelState.AddModelError("", "Login information is incorrect!");
+                }
+            }
+            return View(user);
+        }
+
+        public ActionResult Logout(string site)
+        {
+            Domain.WebMappingSite reqSite = siteRepo.GetByUrlParameter(site);
+            if (reqSite == null)
+                return new HttpNotFoundResult("Web mapping site " + site + " not found");
+
+            ViewBag.site = reqSite;
+
+            // -- clear out all authkeys for the current user.
+            if (System.Web.HttpContext.Current != null && System.Web.HttpContext.Current.User != null && System.Web.HttpContext.Current.User.Identity != null && System.Web.HttpContext.Current.User.Identity.IsAuthenticated)
+            {
+                string currentAppUsername = System.Web.HttpContext.Current.User.Identity.Name;
+                var geoAuthKeyRepo = new Repositories.GeoServerAuthKeyRepository();
+                var allToDelete = geoAuthKeyRepo.FetchAll().Where(x => x.IsExpired || x.WebMappingAppLoggedInUsername == currentAppUsername);
+                foreach (var toDelete in allToDelete)
+                    geoAuthKeyRepo.DeleteOne(x => x.AuthKey == toDelete.AuthKey);
+
+            }
+
+            
+            
+
+            FormsAuthentication.SignOut();
+            Session.Remove("ArcGISToken");
+            return View();
+        }
+
+    }
+}

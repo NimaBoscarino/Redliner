@@ -1,0 +1,34 @@
+﻿{
+	"$type": "System.Collections.Generic.List`1[[Hatfield.WebMap.Domain.WebMapUser, Hatfield.WebMap.MVC]], mscorlib",
+	"$values": [{
+		"$type": "Hatfield.WebMap.Domain.WebMapUser, Hatfield.WebMap.MVC",
+		"Username": "jsuwala",
+		"Password": "HCLuvw40",
+		"DefaultSiteUrlParameter": "BienHoa-Collaboration",
+		"RedirectToDefaultSiteUponLogin": false
+	}, {
+		"$type": "Hatfield.WebMap.Domain.WebMapUser, Hatfield.WebMap.MVC",
+		"Username": "hatfield",
+		"Password": "HCLjhi20",
+		"DefaultSiteUrlParameter": "BienHoa-Collaboration",
+		"RedirectToDefaultSiteUponLogin": true
+	}, {
+		"$type": "Hatfield.WebMap.Domain.WebMapUser, Hatfield.WebMap.MVC",
+		"Username": "CDM-bienhoa",
+		"Password": "MXUkry9S!",
+		"DefaultSiteUrlParameter": "BienHoa-Collaboration",
+		"RedirectToDefaultSiteUponLogin": true
+	}, {
+		"$type": "Hatfield.WebMap.Domain.WebMapUser, Hatfield.WebMap.MVC",
+		"Username": "USAID",
+		"Password": "84SV]6Xg6EFC&@]",
+		"DefaultSiteUrlParameter": "BienHoa-Collaboration",
+		"RedirectToDefaultSiteUponLogin": true
+	}, {
+		"$type": "Hatfield.WebMap.Domain.WebMapUser, Hatfield.WebMap.MVC",
+		"Username": "zed",
+		"Password": "hatfieldgeozed",
+		"DefaultSiteUrlParameter": "Zed",
+		"RedirectToDefaultSiteUponLogin": true
+	}]
+}

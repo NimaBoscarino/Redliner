@@ -1,0 +1,15 @@
+﻿<div class="row">
+    <div class="col-md-12">
+        <div class="well">
+            <em>Last Update: Monday May 9, 2016</em>
+            <h4>asdasd Sources:</h4>
+            <ul>
+                <li>WorldView-3: <a target="_blank" href="www.digitalglobeblog.com/2016/05/06/digitalglobes-rapid-response-to-the-devastating-fort-mcmurray-wildfire/">Digital Globe</a>; processing by <a target="_blank" href="http://www.hatfieldgroup.com">Hatfield Consultants</a></li>
+                <li>May 5,6 Terrabella imagery: <a target="_blank" href="http://www.google.org/crisismap/2016-fort-mcmurray-fire">Google Crisis Mapping</a> License: CC-BY-4.0</li>
+                <li>RMWB Basemaps: <a target="_blank" href="http://view.rmwb.ca/">RMWB Municipal Viewer</a></li>
+                <li>Landsat 7 and 8: <a target="_blank" href="http://earthexplorer.usgs.gov/">USGS EarthExplorer</a>; processing by <a target="_blank" href="http://www.hatfieldgroup.com">Hatfield Consultants</a></li>
+            </ul>
+        </div>
+    </div>
+    
+</div>

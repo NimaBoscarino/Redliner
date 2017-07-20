@@ -1,0 +1,554 @@
+/*
+ * L.Control.Layers is a control to allow users to switch between different layers on the map.
+ * https://raw.githubusercontent.com/Leaflet/Leaflet/stable/src/control/Control.Layers.js
+ */
+
+L.Control.HatEsriLayerPicker = L.Control.extend({
+    options: {        
+        collapsed: false,
+        position: 'topright',
+        autoZIndex: true,
+        width: '280px',
+        title: 'Legend:'
+    },
+
+    initialize: function (baseLayers, overlays, options) {
+        L.setOptions(this, options);
+
+        this._layers = {};
+        this._lastZIndex = 0;
+        this._handlingClick = false;
+
+        for (var i in baseLayers) {
+            this._addLayer(baseLayers[i], i);
+        }
+
+        for (i in overlays) {
+            this._addLayer(overlays[i], i, true);
+        }
+
+
+
+    },
+
+    _onEsriDynamicLayerInputClick: function(e){
+        
+        var input = $(e.target);
+        var esrilayerid = input.data('esrilayerid');
+        var leafletlayerid = input.data('leafletlayerid');
+        var esriparentlayerids_csv = input.data('esriparentlayerids');
+
+        var checked = input.is(':checked');
+        
+        this._map.eachLayer(function (l) {
+            if (l._leaflet_id == leafletlayerid) {
+                var esriLayersArr = l.getLayers();
+                if (checked)
+                    esriLayersArr.push(esrilayerid);
+                else {
+                    // remove esrilayerid from array : http://stackoverflow.com/questions/3596089/how-to-remove-specifc-value-from-array-using-jquery
+                    esriLayersArr = jQuery.grep(esriLayersArr, function (value) {
+                        return value != esrilayerid;
+                    });
+                }
+                l.setLayers(esriLayersArr);
+                l.bringToFront();
+            }
+        }); //eachLayer
+
+    },
+
+    onAdd: function (map) {
+        this._initLayout();
+        this._update();
+
+        map
+		    .on('layeradd', this._onLayerChange, this)
+		    .on('layerremove', this._onLayerChange, this);
+
+        return this._container;
+    },
+
+    onRemove: function (map) {
+        map
+		    .off('layeradd', this._onLayerChange, this)
+		    .off('layerremove', this._onLayerChange, this);
+    },
+
+    addBaseLayer: function (layer, name) {
+        this._addLayer(layer, name);
+        this._update();
+        return this;
+    },
+
+    addOverlay: function (layer, name) {
+        this._addLayer(layer, name, true);
+        this._update();
+        return this;
+    },
+
+    removeLayer: function (layer) {
+        var id = L.stamp(layer);
+        delete this._layers[id];
+        this._update();
+        return this;
+    },
+
+    _initLayout: function () {
+        var className = 'leaflet-control-layers',
+		    container = this._container = L.DomUtil.create('div', className);
+
+        //Makes this work on IE10 Touch devices by stopping it from firing a mouseout event when the touch is released
+        container.setAttribute('aria-haspopup', true);
+
+        container.setAttribute('style', "width: " + this.options.width);
+
+        var title = L.DomUtil.create('div', className + '-title');
+        title.innerHTML = this.options.title;
+        container.appendChild(title);
+
+        var title = L.DomUtil.create('div', className + '-contents');
+
+        if (!L.Browser.touch) {
+            L.DomEvent
+				.disableClickPropagation(container)
+				.disableScrollPropagation(container);
+        } else {
+            L.DomEvent.on(container, 'click', L.DomEvent.stopPropagation);
+        }
+
+        var form = this._form = L.DomUtil.create('form', className + '-list');
+
+        if (this.options.collapsed) {
+            if (!L.Browser.android) {
+                L.DomEvent
+				    .on(container, 'mouseover', this._expand, this)
+				    .on(container, 'mouseout', this._collapse, this);
+            }
+            var link = this._layersLink = L.DomUtil.create('a', className + '-toggle', container);
+            link.href = '#';
+            link.title = 'Layers';
+
+            if (L.Browser.touch) {
+                L.DomEvent
+				    .on(link, 'click', L.DomEvent.stop)
+				    .on(link, 'click', this._expand, this);
+            }
+            else {
+                L.DomEvent.on(link, 'focus', this._expand, this);
+            }
+            //Work around for Firefox android issue https://github.com/Leaflet/Leaflet/issues/2033
+            L.DomEvent.on(form, 'click', function () {
+                setTimeout(L.bind(this._onInputClick, this), 0);
+            }, this);
+
+            this._map.on('click', this._collapse, this);
+            // TODO keyboard accessibility
+        } else {
+            this._expand();
+        }
+
+        this._baseLayersList = L.DomUtil.create('div', className + '-base', form);
+        this._separator = L.DomUtil.create('div', className + '-separator', form);
+        this._overlaysList = L.DomUtil.create('div', className + '-overlays', form);
+
+        container.appendChild(form);
+    },
+
+    _addLayer: function (layer, name, overlay) {
+        var id = L.stamp(layer);
+
+        this._layers[id] = {
+            layer: layer,
+            name: name,
+            overlay: overlay
+        };
+
+        if (this.options.autoZIndex && layer.setZIndex) {
+            this._lastZIndex++;
+            layer.setZIndex(this._lastZIndex);
+        }
+    },
+
+    _update: function () {
+        if (!this._container) {
+            return;
+        }
+
+        this._baseLayersList.innerHTML = '';
+        this._overlaysList.innerHTML = '';
+
+        var baseLayersPresent = false,
+		    overlaysPresent = false,
+		    i, obj, countBaseLayers = 0, countOverlays =0;
+
+        for (i in this._layers) {
+            obj = this._layers[i];
+            if (obj.overlay) {
+                countOverlays++;
+            }
+            else
+            {
+                countBaseLayers++;
+            }
+        }
+
+        for (i in this._layers) {
+            obj = this._layers[i];
+            
+
+            if (typeof obj.layer.setLayerDefs === "function")
+            {
+                // we have a L.esri.Layers.DynamicMapLayer
+                this._addESRIDynamicMapLayer(obj, countBaseLayers, countOverlays);
+            }
+            else
+            {
+                this._addItem(obj, countBaseLayers, countOverlays);
+            }
+            overlaysPresent = overlaysPresent || obj.overlay;
+            baseLayersPresent = baseLayersPresent || !obj.overlay;
+        }
+
+        this._separator.style.display = overlaysPresent && baseLayersPresent ? '' : 'none';
+    },
+
+    _onLayerChange: function (e) {
+        var obj = this._layers[L.stamp(e.layer)];
+
+        if (!obj) { return; }
+
+        if (!this._handlingClick) {
+            this._update();
+        }
+
+        var type = obj.overlay ?
+			(e.type === 'layeradd' ? 'overlayadd' : 'overlayremove') :
+			(e.type === 'layeradd' ? 'baselayerchange' : null);
+
+        if (type) {
+            this._map.fire(type, obj);
+        }
+    },
+
+    // IE7 bugs out if you create a radio dynamically, so you have to do it this hacky way (see http://bit.ly/PqYLBe)
+    _createRadioElement: function (name, checked) {
+
+        var radioHtml = '<input type="radio" class="leaflet-control-layers-selector" name="' + name + '"';
+        if (checked) {
+            radioHtml += ' checked="checked"';
+        }
+        radioHtml += '/>';
+
+        var radioFragment = document.createElement('div');
+        radioFragment.innerHTML = radioHtml;
+
+        return radioFragment.firstChild;
+    },
+
+    _addESRIDynamicMapLayer: function (obj, countBaseLayers, countOverlays) {
+
+        var dv = document.createElement('div');
+        var dvId = 'DynamicMapLayerLegend' + obj.layer._leaflet_id;
+        dv.setAttribute('id', dvId);
+        dv.innerHTML = "Dynamic Map Layer loading...!";
+        this._getESRIDynamicMapLayerLegend(obj, dvId);
+        var container = obj.overlay ? this._overlaysList : this._baseLayersList;
+        container.appendChild(dv);
+        
+    },
+
+    _getEsriLayerById: function(id, allLayers){
+        for (var i = 0; i < allLayers.length; i++)
+        {
+            if (allLayers[i].id == id)
+                return allLayers[i];
+        }
+        return null;
+    },
+    
+
+    _renderEsriSubLayersRecursive: function (curLayer, allLayers, parentShowing, dynamicMapLayerObj) {
+        var ret = document.createElement("div");
+        if (curLayer.subLayerIds != null)
+        {
+            var ul = document.createElement("ul");
+            // html += "<ul>";            
+            for (var i = 0; i < curLayer.subLayerIds.length; i++ )
+            {
+                var subLayer = this._getEsriLayerById(curLayer.subLayerIds[i], allLayers);
+                if (subLayer == null)
+                {
+                    ul.appendChild(document.createTextNode('Error: could not find layer #' + subLayerId));
+                }
+                else
+                {                    
+                    var viz = (parentShowing && subLayer.defaultVisibility);                    
+
+                    // html += '<div class="checkbox "><label>';
+                    var cbxDiv = document.createElement("div");
+                    cbxDiv.className = 'checkbox';
+
+                    var label = document.createElement("label");
+
+                    var cbx = this._getEsriDynamicLayerCheckbox(subLayer, 'legenddynamiccbx' + subLayer.layerId, viz, dynamicMapLayerObj, allLayers);
+                    label.appendChild(cbx);
+                    label.appendChild(document.createTextNode(subLayer.name));
+                    // html += subLayer.name;
+                    // html += '</label></div>';
+                    cbxDiv.appendChild(label);
+                    
+                    if (viz) {
+                        var arr = dynamicMapLayerObj.layer.getLayers();
+                        if (arr == false)
+                            arr = [];
+                        arr.push(subLayer.id);
+                        dynamicMapLayerObj.layer.setLayers(arr);
+                    }
+
+                    if (subLayer.subLayerIds != null)
+                    {
+                        var sub = this._renderEsriSubLayersRecursive(subLayer, allLayers, subLayer.defaultVisibility, dynamicMapLayerObj);
+                        cbxDiv.appendChild(sub);
+                    }
+
+                    ul.appendChild(cbxDiv);
+                }
+
+
+            } // for
+            // html += "</ul>";
+            ret.appendChild(ul);
+        } // if
+        return ret;
+
+    },
+
+    _getEsriDynamicLayerCheckbox: function (layer, cbxId, checked, dynamicMapLayerObj, allLayers) {
+        // var html = "";
+        var input = L.DomUtil.create('input', 'Legend-EsriDynamicLayerCheckbox');
+        input.type = 'checkbox';
+        // html += '<input class="Legend-EsriDynamicLayerCheckbox" type="checkbox"';
+        if (checked)
+        {
+            // html += ' checked="checked" ';
+            input.defaultChecked = checked;
+        }
+
+        // html += ' data-esrilayerid="' + layer.id + '" data-leafletlayerid="' + dynamicMapLayerObj.layer._leaflet_id + '" ';
+        input.setAttribute("data-esrilayerid", layer.id);
+        input.setAttribute("data-leafletlayerid", dynamicMapLayerObj.layer._leaflet_id);
+
+        var parentIds = [];
+        var pLayer = layer;
+        while (pLayer.parentLayerId != -1 && pLayer.parentLayerId != null)
+        {
+            parentIds.push(pLayer.parentLayerId);
+            pLayer = this._getEsriLayerById(pLayer.parentLayerId, allLayers);
+        }
+
+        // html += ' data-esriparentlayerids="' + parentIds.join(',') + '" ';
+        input.setAttribute("data-esriparentlayerids", parentIds.join(','));
+
+        // html += ' id="' + cbxId + '" />';
+        input.id = cbxId;
+
+        L.DomEvent.on(input, 'change', this._onEsriDynamicLayerInputClick, this);
+
+        // return html;
+
+        return input;
+    },
+
+    _getESRIDynamicMapLayerLegend: function (dynamicMapLayerObj, dvId) {
+        dynamicMapLayerObj.layer.bringToFront();
+        var token = dynamicMapLayerObj.layer._service.options.token;
+        var serviceInfoJsonUrl = dynamicMapLayerObj.layer.options.url + "/?f=json&token=" + token;
+        var parentThis = this;
+        var jqxhr = $.getJSON(serviceInfoJsonUrl, function (data) {
+            if (data == undefined || data.layers == undefined || data.layers.length < 1)
+            {
+                alert("Error fetching service definition :" + data.error.message);
+                return;
+            }
+            var retEl = L.DomUtil.create('div', 'leaflet-control-esridynamicmaplayer');
+            
+            jQuery.each(data.layers, function (l_index, layer) {
+                // only root elements are added here
+                if (layer.parentLayerId == -1) {
+                    
+                    var layerDiv = L.DomUtil.create('div', 'leaflet-control-esridynamicmaplayer-layer checkbox');
+                    var label = document.createElement('label')
+                    // html += '<div class="checkbox "><label>';
+                    var cbx = parentThis._getEsriDynamicLayerCheckbox(layer, 'legenddynamiccbx' + layer.layerId, layer.defaultVisibility, dynamicMapLayerObj, data.layers);
+
+                    label.appendChild(cbx);
+                    label.appendChild(document.createTextNode(layer.name));
+                    // html += layer.name;
+                    // html += '</label></div>';                    
+
+                    if (layer.defaultVisibility)
+                    {
+                        var arr = dynamicMapLayerObj.layer.getLayers();
+                        if (arr == false)
+                            arr = [];
+                        arr.push(layer.id);
+                        dynamicMapLayerObj.layer.setLayers(arr);
+                    }
+
+                    var subLayers = parentThis._renderEsriSubLayersRecursive(layer, data.layers, layer.defaultVisibility, dynamicMapLayerObj);
+
+                    label.appendChild(subLayers);
+                    
+
+                    layerDiv.appendChild(label);
+                    retEl.appendChild(layerDiv);
+
+                }
+                
+                
+                
+            }); // each layer
+            $("#" + dvId).html(''); // clear the 'loading' text
+            $('#' + dvId).prepend(retEl);
+        }); // .getJSON
+
+    },
+    _getESRIDynamicMapLayerLegend2: function (obj, dvId) {
+        var parentThis = this;
+        var token = obj.layer._service.options.token;
+        legendJsonUrl = obj.layer.options.url + "/legend?f=json&token="+token;
+            var jqxhr = $.getJSON(legendJsonUrl, function (data) {
+                if (data == undefined || data.layers == undefined || data.layers.length < 1)
+                {
+                    alert("Error fetching legend definition :" + data.error.message);
+                    return;
+                }
+                var html = "";
+                jQuery.each(data.layers, function (l_index, layer) {
+                    if (true || layer.layerId == 2)
+                    {
+                        var displayField = parentThis._getLayerDisplayField(obj.layer.options.url, layer.layerId, token);
+                        $(layer.legend).each(function (index, legend) {
+                            if (legend.label != "") {
+                                if (legend.label == "Unknown")
+                                {
+                                    legend.label = "Cloud Cover";
+                                }
+                                var layervalue = "";
+                                if (typeof legend.values != 'undefined')
+                                    layervalue = legend.values[0];
+
+                                html += '<div class="checkbox col-md-12"><label><input class="layercheckbox" type="checkbox" data-queryfield="' + displayField + '" data-layerid="' + layer.layerId + '" data-layervalue="' + layervalue + '" checked="checked" id="leg' + index + '" />';
+                                html += '<img src="data:' + legend.contentType + ';base64,' + legend.imageData + '" width="20" height="20" /> ' + legend.label + '</label>';
+                                html += '</div>';
+                            }
+                        });
+
+                    }
+                }); // for each layer
+
+                $("#"+dvId).html(html);
+
+
+            })
+            .fail(function () {
+                alert("error fetching legend definition.");
+            });
+        }, // updateLegend
+
+        _getLayerDisplayField : function(mapserverUrl, layerId, token)
+        {
+            var layerInfoJsonUrl = mapserverUrl + "/" + layerId + "?f=json&token="+token;
+            var ret = "";
+            // do a synchronous get
+            $.ajax({
+                url: layerInfoJsonUrl,
+                dataType: 'json',
+                async: false,
+                error: function () {
+                    alert("error fetching layer definition from URL " + layerInfoJsonUrl);
+                },
+                success: function (data) {
+                    if (data.drawingInfo.renderer.type == "uniqueValue")
+                        ret = data.drawingInfo.renderer.field1;
+                    else
+                        ret = data.displayField;
+                }
+            });
+
+
+            return ret;
+        }, // getLayerDisplayField
+
+
+    _addItem: function (obj, countBaseLayers, countOverlays) {
+        var label = document.createElement('label'),
+		    input,
+		    checked = this._map.hasLayer(obj.layer);
+
+        if (obj.overlay) {
+            input = document.createElement('input');
+            input.type = 'checkbox';
+            input.className = 'leaflet-control-layers-selector';
+            input.defaultChecked = checked;
+        } else if (countBaseLayers > 1) {
+            input = this._createRadioElement('leaflet-base-layers', checked);
+        }
+        else {
+            // only one base layer
+            return label;
+        }
+
+        input.layerId = L.stamp(obj.layer);
+
+        L.DomEvent.on(input, 'click', this._onInputClick, this);
+
+        var name = document.createElement('span');
+        name.innerHTML = ' ' + obj.name;
+
+        label.appendChild(input);
+        label.appendChild(name);
+
+        var container = obj.overlay ? this._overlaysList : this._baseLayersList;
+        container.appendChild(label);
+
+        return label;
+    },
+
+    _onInputClick: function () {
+        var i, input, obj,
+		    inputs = this._form.getElementsByTagName('input'),
+		    inputsLen = inputs.length;
+
+        this._handlingClick = true;
+
+        for (i = 0; i < inputsLen; i++) {
+            input = inputs[i];
+            obj = this._layers[input.layerId];
+
+            if (input.checked && typeof obj != 'undefined' && !this._map.hasLayer(obj.layer)) {
+                this._map.addLayer(obj.layer);
+
+            } else if (!input.checked && typeof obj != 'undefined' && this._map.hasLayer(obj.layer)) {
+                this._map.removeLayer(obj.layer);
+            }
+        }
+
+        this._handlingClick = false;
+
+        this._refocusOnMap();
+    },
+
+    _expand: function () {
+        L.DomUtil.addClass(this._container, 'leaflet-control-layers-expanded');
+    },
+
+    _collapse: function () {
+        this._container.className = this._container.className.replace(' leaflet-control-layers-expanded', '');
+    }
+});
+
+L.control.hatesrilayerpicker = function (baseLayers, overlays, options) {
+    return new L.Control.HatEsriLayerPicker(baseLayers, overlays, options);
+};

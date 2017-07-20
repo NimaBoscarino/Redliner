@@ -1,0 +1,21 @@
+﻿@{
+    Hatfield.WebMap.Domain.WebMappingSite site = ViewBag.site;        
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    @Html.Partial("_CommonHeadSection")        
+    
+</head>
+<body>
+
+    <div class="container">        
+        @Html.Partial(site.TopNavigationControlPath)
+        @RenderBody()
+        <p>&nbsp;</p>
+        @Html.Partial("~/SiteLayouts/_YMMFireFooter")
+    </div>
+    @Html.Partial("_CommonScripts")
+    @RenderSection("HeaderScriptsArea", false)
+</body>
+</html>

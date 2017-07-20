@@ -1,0 +1,80 @@
+L.Control.HatZedPanTo = L.Control.extend({
+    options: {
+        position: 'topright',
+        title: {
+            'false': 'HatZedPanTo',
+            'true': 'Exit Fullscreen'
+        }
+    },
+
+    onAdd: function (map) {
+        var container = L.DomUtil.create('div', 'leaflet-control-hatzedpanto  leaflet-control');
+/*
+<div class="btn-group" role="group" aria-label="...">
+  <button type="button" class="btn btn-default">Left</button>
+  <button type="button" class="btn btn-default">Middle</button>
+  <button type="button" class="btn btn-default">Right</button>
+</div>
+*/
+		container.style= "background-color: rgba(255,255,255,0.5); padding: 2px; border-radius: 5px;";
+		var label = L.DomUtil.create('span', '', container);
+		label.innerHTML = 'Go to:<br>';
+		
+		addToHatPanel(null, container, map);
+		
+		this._map = map;
+        alert('do not use hatzedpanto.addToMap!')
+        return container;
+    },
+
+    addToHatPanel: function (hatPanelObj, panelContentContainer, map) {
+
+        this._map = map;
+
+        this.btnGroup = L.DomUtil.create('div', 'btn-group btn-group-sm', panelContentContainer);
+
+        this.linkBissette = L.DomUtil.create('button', 'btn btn-default ', this.btnGroup);
+        this.linkBissette.href = '#';
+        this.linkBissette.innerHTML = "Bissette";
+
+        L.DomEvent.on(this.linkBissette, 'click', this._clickBissette, this);
+
+        this.linkCowie = L.DomUtil.create('button', 'btn btn-default ', this.btnGroup);
+        this.linkCowie.href = '#';
+        this.linkCowie.innerHTML = "Cowie";
+
+        L.DomEvent.on(this.linkCowie, 'click', this._clickCowie, this);
+
+        this.linkBennett = L.DomUtil.create('button', 'btn btn-default ', this.btnGroup);
+        this.linkBennett.href = '#';
+        this.linkBennett.innerHTML = "Bennett";
+
+        L.DomEvent.on(this.linkBennett, 'click', this._clickBennett, this);
+        return this.btnGroup;
+    },
+
+    _clickBissette: function (e) {
+        L.DomEvent.stopPropagation(e);
+        L.DomEvent.preventDefault(e);
+        this._map.flyTo(L.latLng({lat: 55.6715, lng: -120.3284}), 12); // /
+    },
+	_clickCowie: function (e) {
+        L.DomEvent.stopPropagation(e);
+        L.DomEvent.preventDefault(e);
+		///
+        this._map.flyTo(L.latLng({lat: 55.5849, lng: -121.4497}), 12);
+    },
+	_clickBennett: function (e) {
+        L.DomEvent.stopPropagation(e);
+        L.DomEvent.preventDefault(e);
+		//55.2742/-121.1105
+       this._map.flyTo(L.latLng({lat:55.2742, lng: -121.1105}), 12);
+    }
+
+    
+});
+
+
+L.control.hatzedzoomto = function (options) {
+    return new L.Control.HatZedPanTo(options);
+};

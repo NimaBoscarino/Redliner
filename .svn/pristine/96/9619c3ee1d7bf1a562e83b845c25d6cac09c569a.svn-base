@@ -1,0 +1,54 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+
+namespace Hatfield.WebMap.Repositories
+{
+    public class GeoServerAuthKeyRepositoryItem
+    {
+        public string Site;
+        public string Layer;
+        public string GeoServerUsername;
+        public Guid AuthKey;
+        public DateTime ExpiryDateTime;
+        public string WebMappingAppLoggedInUsername;
+
+        [Newtonsoft.Json.JsonIgnoreAttribute]
+        public bool IsExpired
+        {
+            get
+            {
+                if (DateTime.Now > ExpiryDateTime)
+                    return true;
+                else
+                    return false;
+            }
+        }
+
+        public GeoServerAuthKeyRepositoryItem()
+        {
+            Site = string.Empty;
+            Layer = string.Empty;
+            GeoServerUsername = string.Empty;
+            AuthKey = Guid.NewGuid();
+            ExpiryDateTime = DateTime.MinValue; // already expired
+            WebMappingAppLoggedInUsername = "";
+        }
+    }
+
+    public class GeoServerAuthKeyRepository : BaseJSONDataFileRepository<GeoServerAuthKeyRepositoryItem>
+    {
+        public static int DEFAULT_IDLE_SECONDS = 300; // // 300 = "DEFAULT_IDLE_TIME" set in GeoServer for how long : https://github.com/geoserver/geoserver/blob/55c4740060eb2b8809ae935a510ac83eeb923313/src/main/src/main/java/org/geoserver/security/auth/AuthenticationCache.java#L23
+
+        /// <summary>
+        /// We have a magic auth key that always returns "admin" as the username. using this we can make localhost debugging easier to do.
+        /// </summary>
+        public static Guid MagicAdminAuthKey = new Guid("c2345f9b-5c5f-4c2c-8520-7ec8656549c0");
+
+        public override string GetDataFileLocationOnDisk()
+        {
+            return System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data/GeoServerAuthKeyRepository.json");
+        }
+    }
+}

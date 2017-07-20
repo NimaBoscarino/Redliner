@@ -1,0 +1,70 @@
+.leaflet-control-hatpanel{
+	border: 2px solid rgba(0,0,0,0.2);
+	background-color: white;
+	border-radius: 4px;
+	background-color: #fff;
+}
+.leaflet-control-hatpanel.open {
+	/*
+    min-width: 250px;
+	 min-height: 20px;
+        */
+}
+
+.leaflet-control-hatpanel.closed {
+	width: 25px;
+	min-height: 150px;
+	background-color: rgba(0,0,0,0.2);
+    
+}
+
+.leaflet-control-hatpanel-titlebar {
+	
+	font-size: 12px;
+	font-weight: bold;
+	text-align: center;
+}
+
+.leaflet-control-hatpanel-titlebar a.close {
+    position: absolute;
+    right: 0px;
+    z-index: 100;
+    top: -10px;
+}
+
+.leaflet-control-hatpanel.open  .leaflet-control-hatpanel-titlebar {
+	background-color: rgba(0,0,0,0.2);
+}
+.leaflet-control-hatpanel.closed  .leaflet-control-hatpanel-titlebar {
+	cursor: pointer;
+}
+
+
+.leaflet-control-hatpanel-titlebar-txt {
+	white-space:nowrap;
+	width: 100%;
+    cursor: pointer;
+}
+
+.leaflet-control-hatpanel.closed .leaflet-control-hatpanel-titlebar-txt
+{
+-ms-transform: rotate(270deg);
+-webkit-transform: rotate(270deg);
+-moz-transform: rotate(270deg);
+-o-transform: rotate(270deg);
+-ms-transform-origin: 90% 100%; /* IE 9 */
+-webkit-transform-origin: 90% 100%;
+transform-origin: 260% 300%;
+writing-mode: lr-tb;
+
+}
+
+.leaflet-control-hatpanel.closed .leaflet-control-hatpanel-panelcontent
+{
+	display: none;
+}
+
+.leaflet-control-hatpanel.open .leaflet-control-hatpanel-panelcontent
+{
+	display: block;
+}

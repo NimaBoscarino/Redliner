@@ -1,0 +1,64 @@
+﻿@{
+    Hatfield.WebMap.Domain.WebMappingSite site = ViewBag.site;
+}
+<div class="zed-topheader-brand-bar">
+    @*
+    <div class="zed-topheader-brand-bar-sitetitle">
+        <a href="@Url.Action("Dashboard", "Home", new { site = site.urlParameter  })">Zero Emission Develpment EIA Web Portal</a>
+    </div>
+    *@
+    <nav class="navbar navbar-inverse ">
+        <div class="xcontainer-fluidx">
+            <!-- Brand and toggle get grouped for better mobile display -->
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>     
+                <a class="navbar-brand" href="@Url.Action("Dashboard", "Home", new { site = site.urlParameter  })">ZED Development Plan Web Portal</a>           
+            </div>
+@if (!site.RequiresAuthentication || (site.RequiresAuthentication && Context.User.Identity.IsAuthenticated))
+{
+            <!-- Collect the nav links, forms, and other content for toggling -->
+            <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+                <ul class="nav navbar-nav">
+                    <li class="active"><a href="@Url.Action("Dashboard", "Home", new { site = site.urlParameter  })"><i class="glyphicon glyphicon-tasks"></i> Dashboard</a></li>
+                    <li class="dropdown">                        
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"> Vegetation <span class="caret"></span></a>
+                        <ul class="dropdown-menu">
+                            <li><a href="@Url.Action("Index", "Home", new { site = site.urlParameter, view = "vegetation" })">Vegetation Map</a></li>
+                            <li><a href="@Url.Action("Index", "Home", new { site = site.urlParameter, view = "wetlands" })">Wetland Map</a></li>
+                        </ul>
+                    </li>
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"> Wildlife <span class="caret"></span></a>
+                        <ul class="dropdown-menu">
+                            <li><a href="@Url.Action("Index", "Home", new { site = site.urlParameter, view = "wildlife" })">Wildlife Map</a></li>
+                            
+                        </ul>
+                    </li>
+					<li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"> Archaeology <span class="caret"></span></a>
+                        <ul class="dropdown-menu">
+                            <li><a href="@Url.Action("Index", "Home", new { site = site.urlParameter, view = "archaeology" })">Archaeology Map</a></li>
+                            
+                        </ul>
+                    </li>					
+                </ul>
+                <ul class="nav navbar-nav navbar-right">
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"><i class="glyphicon glyphicon-user"></i> @User.Identity.Name <span class="caret"></span></a>
+                        <ul class="dropdown-menu">
+                            <li><a href="@Url.Action("Logout", "Home")"><i class="glyphicon glyphicon-log-out"></i> Logout</a></li>
+                        </ul>
+                    </li>
+                    <li><a href="http://www.hatfieldgroup.com" style="padding: 0px; margin: 0px;" target="_blank"><img height="50" src="@Url.Content("~/images/Zed/HatfieldConsultants_HLogo_120x50.png")" /></a></li>
+                </ul>
+            </div><!-- /.navbar-collapse -->
+}
+        </div><!-- /.container-fluid -->
+    </nav>
+    
+</div>

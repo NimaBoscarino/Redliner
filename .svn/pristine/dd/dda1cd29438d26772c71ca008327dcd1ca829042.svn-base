@@ -1,0 +1,13 @@
+﻿/* styles specific to the BienHoa-Collaboration web map */
+.leaflet-control-toc-title {
+    font-weight: bold;
+}
+
+ .leaflet-control-hatbeinhoasidebar-subtitle {
+     font-weight: bold;
+ }
+
+.appTitle {
+    margin-top: 20px;
+    font-size: 22pt;
+}

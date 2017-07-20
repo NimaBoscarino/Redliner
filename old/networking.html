@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Redliner</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"/> <!--320-->
+    <meta charset="UTF-8">
+    <script src="https://maps.googleapis.com/maps/api/js?key= AIzaSyAxHVEeDo0g7pxmzo1PxCLIhmzjMBWEqBI " async defer></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.0.2/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.0.2/dist/leaflet.js"></script>
+    <script src='https://unpkg.com/leaflet.gridlayer.googlemutant@latest/Leaflet.GoogleMutant.js'></script>
+    <!-- Compiled and minified CSS -->
+    <link href="styles/redliner.css" rel="stylesheet" />
+    <link href="styles/panelManager.css" rel="stylesheet" />
+</head>
+<body>
+    <div id="map"></div>
+    <script src="mapConfig.js"></script>
+    <script src="panelManager.js"></script>
+    <script src="redliner.js"></script>
+    <script src="redliner-networking.js"></script>
+
+    <script>
+        var redliner = L.Redliner.addTo(map);
+        var redlinerNetworking = L.RedlinerNetworking.addTo(map);
+        var panelManager = L.PanelManager.addTo(map);
+        map.PanelManager.loadPlugin(map.Redliner);
+
+    </script>
+</body>
+</html>

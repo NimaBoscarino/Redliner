@@ -1,0 +1,149 @@
+﻿@{
+    Hatfield.WebMap.Domain.WebMappingSite site = ViewBag.site;
+    string currentViewName = ViewBag.currentViewName.ToString();
+}
+<script>
+    /* _Zed_MapScriptsAreaControl */
+    /* Global page variables */
+    var numLayersLoading = 0;
+    var map = null;
+    var allLayers = null; // L.layerGroup();
+    var queryTemplates = {};
+
+
+    function startLayerLoading()
+    {
+        $('.map-loading-icon').find('img').attr('src', '@Url.Content("~/images/Zed/animatedWindmill.gif")')
+        $('.map-loading-icon').removeClass('hidden');
+        $('.map-loading-icon').show();
+        numLayersLoading++;
+    }
+
+    function endLayerLoading()
+    {
+        numLayersLoading--;
+        if (numLayersLoading <= 0)
+        {
+            numLayersLoading = 0;
+            $('.map-loading-icon').hide();
+        }
+    }
+
+
+    $(document).ready(function () {
+
+        map = L.map('map', { attributionControl: false, fullscreenControl: true }).setView([@site.InitialMapCenter.Latitude, @site.InitialMapCenter.Longitude], @site.InitialMapZoomLevel);
+
+        L.control.scale({ imperial: false }).addTo(map);
+
+        if (L.Control.HatZedPanTo){
+            var panelPanTo = new L.Control.hatPanel({title: 'Go To', autoPan: false, initializeOpen: true }).addTo(map);
+            var hatZedPanTo = new L.Control.HatZedPanTo();
+            // hatZedPanTo.addTo(map);
+            panelPanTo.addControl(hatZedPanTo);
+        }
+
+        allLayers = L.layerGroup();
+
+        @{
+
+
+            var layers = site.Layers;
+            for (var i = 0; i < layers.Count(); i++ )
+            {
+                string layerName = "layer_" + (i).ToString();
+
+                var layer = layers.ElementAt(i);
+                string jsCreate = layer.getJavascriptCreateStatement(layerName, site);
+                @Html.Raw(jsCreate);
+                @Html.Raw(Environment.NewLine);
+
+                if (layer.RequiresAuthentication)
+                {
+                    if (layer is Hatfield.WebMap.Domain.Layers.ESRIDynamicMapLayer || layer is Hatfield.WebMap.Domain.Layers.ESRITiledMapLayerMapLayer)
+                    {
+                        @Html.Raw(layerName + ".authenticate('" + ViewBag.token + "');" + Environment.NewLine);
+                    }
+
+                }
+                @Html.Raw("allLayers.addLayer(" + layerName + ");" + Environment.NewLine);
+                if(layer.InitiallyVisible)
+                {
+                    @Html.Raw(layerName + ".addTo(map);" + Environment.NewLine);
+                }
+
+                if (layer.Queryable)
+                {
+                    @Html.Raw(layerName+".on('requestend', function () { $('.feature-query-loading-icon').hide(); });"+Environment.NewLine);
+                    @Html.Raw(layerName+".on('requeststart', function () { $('.feature-query-loading-icon').removeClass('hidden').show(); });"+Environment.NewLine);
+
+                }
+                @Html.Raw(layerName + ".on('load', endLayerLoading);" + Environment.NewLine);
+                @Html.Raw(layerName + ".on('loading', startLayerLoading);" + Environment.NewLine);
+
+                @Html.Raw(layerName + ".hashName = '" + (i).ToString() + "';" + Environment.NewLine);
+            }
+
+            string viewParam = "";
+            if (!string.IsNullOrEmpty(currentViewName))
+            {
+                viewParam = currentViewName;
+            }
+        }
+
+
+        if (L.Control.HatTOC)
+        {
+            var layerPicker = L.control.hattoc(allLayers, {
+                spinnerImageUrl: '@Url.Content("~/images/Zed/animatedWindmill.gif")',
+                treeAjaxUrl: '@Url.Action("GetACITreeTOCJsonData", "Home", new { v = currentViewName })',
+                view: '@Html.Raw(viewParam)'
+            }).addTo(map);
+            map._HatTOC = layerPicker;
+
+            var panelLayers = new L.Control.hatPanel({title: 'Layers', autoPan: false, initializeOpen: true }).addTo(map);
+            
+            // hatZedPanTo.addTo(map);
+            panelLayers.addControl(layerPicker);
+
+        }
+        if (L.control.hatidentifysidebar)
+        {
+            var identifySidebar = L.control.hatidentifysidebar('IdentifySidebar', {
+                position: 'left',
+                hatTOC: map._HatTOC,                
+                spinnerImageUrl: '@Url.Content("~/images/Zed/animatedWindmill.gif")'
+
+            });
+            map.addControl(identifySidebar);
+        }
+
+
+        if (L.Control.Measure)
+        {
+            var measureoptions = {position: 'bottomleft', primaryLengthUnit: 'meters', primaryAreaUnit : 'sqmeters' };
+            var measureControl = new L.Control.Measure(measureoptions);
+            measureControl.addTo(map);
+        }
+
+        if (L.Hash) {
+            var hash = new L.Hash(map);
+            hash.update();
+        }
+        
+        if (L.Redliner)
+        {
+            var redliner = L.Redliner; 
+            var panelComments = new L.Control.hatPanel({title: 'Comment Tool', autoPan: false, initializeOpen: false, position: 'bottomleft' }).addTo(map);
+            
+            var redlinerUI = new L.Control.HatPanelRedliner({ redliner: redliner});
+
+            // hatZedPanTo.addTo(map);
+            panelComments.addControl(redlinerUI);
+        }
+
+        
+
+    }); // document.ready
+</script>
+

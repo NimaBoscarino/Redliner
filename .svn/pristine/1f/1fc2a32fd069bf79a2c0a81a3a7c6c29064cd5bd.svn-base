@@ -1,0 +1,60 @@
+﻿using System;
+using System.Text;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+
+namespace Hatfield.WebMap.Domain.Layers
+{
+    public class TileLayer: IMapLayer
+    {
+        public string Url
+        {
+            get; set; 
+        }
+
+        public string DisplayName
+        {
+            get;
+            set;
+        }
+
+        public bool InitiallyVisible
+        {
+            get;
+            set;
+        }
+
+        public bool Queryable
+        {
+            get { return false; }
+        }
+
+        public bool RequiresAuthentication
+        {
+            get { return false; }
+        }
+
+        public string AttributionHtml { get; set; }
+
+        public string getJavascriptCreateStatement(string jsVarNameToCreate, WebMappingSite site)
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine(jsVarNameToCreate+" = L.tileLayer( '" + Url + "', {");
+            if (AttributionHtml != "")
+            {
+                sb.AppendLine("attribution: '" + AttributionHtml + "'");
+            }
+		    sb.AppendLine("});");
+
+            return sb.ToString();
+        }
+
+        public string getAuthToken(TokenMode mode)
+        {
+            return "";
+        }
+
+        
+    }
+}

@@ -1,0 +1,10 @@
+﻿<div class="row">
+    <div class="col-md-7 appTitle">@Html.Raw(ViewBag.site.DisplayTitle)</div>
+    <div class="col-md-1 appLogout">
+    @if ((ViewBag.site as Hatfield.WebMap.Domain.WebMappingSite).RequiresAuthentication && Context.User.Identity.IsAuthenticated)
+    { 
+    <a href="@Url.Action("Logout", "Home")" class="btn btn-default"><i class="glyphicon glyphicon-off"></i> Log Out</a>
+    }
+    </div>
+        
+</div>

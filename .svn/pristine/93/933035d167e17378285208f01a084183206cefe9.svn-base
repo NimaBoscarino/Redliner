@@ -1,0 +1,432 @@
+/*
+	hatIdentifySidebar
+	based on L.Control.SideBar https://github.com/Turbo87/leaflet-sidebar
+*/
+L.Control.hatIdentifySidebar = L.Control.extend({
+
+    includes: L.Mixin.Events,
+
+    options: {
+        closeButton: true,
+        position: 'left',
+        autoPan: true,
+    },
+
+    initialize: function (placeholder, options) {
+        L.setOptions(this, options);
+
+        this._queryMapMarker = null;
+
+    },
+
+    addTo: function (map) {
+
+        // Find content container
+        var content = this._contentContainer = L.DomUtil.create('div', '', map._container); // L.DomUtil.get(placeholder);
+
+        // Remove the content container from its original parent
+        content.parentNode.removeChild(content);
+
+        var l = 'leaflet-';
+
+        // Create sidebar container
+        var container = this._container =
+            L.DomUtil.create('div', l + 'sidebar ' + this.options.position);
+
+        // Style and attach content container
+        L.DomUtil.addClass(content, l + 'control');
+        container.appendChild(content);
+
+        // Create close button and attach it if configured
+        if (this.options.closeButton) {
+            var close = this._closeButton =
+                L.DomUtil.create('a', 'close', container);
+            close.innerHTML = '&times;';
+        }
+
+        // Attach event to close button
+        if (this.options.closeButton) {
+            var close = this._closeButton;
+
+            L.DomEvent.on(close, 'click', this.hide, this);
+        }
+
+        L.DomEvent
+            .on(container, 'transitionend',
+                this._handleTransitionEvent, this)
+            .on(container, 'webkitTransitionEnd',
+                this._handleTransitionEvent, this);
+
+        // Attach sidebar container to controls container
+        var controlContainer = map._controlContainer;
+        controlContainer.insertBefore(container, controlContainer.firstChild);
+
+        this._map = map;
+		
+		map.on('click', this._runQuery, this);
+
+        // Make sure we don't drag the map when we interact with the content
+        var stop = L.DomEvent.stopPropagation;
+        var fakeStop = L.DomEvent._fakeStop || stop;
+        L.DomEvent
+            .on(content, 'contextmenu', stop)
+            .on(content, 'click', fakeStop)
+            .on(content, 'mousedown', stop)
+            .on(content, 'touchstart', stop)
+            .on(content, 'dblclick', fakeStop)
+            .on(content, 'mousewheel', stop)
+            .on(content, 'MozMousePixelScroll', stop);
+
+        return this;
+    },
+
+    removeFrom: function (map) {
+        //if the control is visible, hide it before removing it.
+        this.hide();
+
+        var content = this._contentContainer;
+
+        // Remove sidebar container from controls container
+        var controlContainer = map._controlContainer;
+        controlContainer.removeChild(this._container);
+
+        //disassociate the map object
+        this._map = null;
+
+        // Unregister events to prevent memory leak
+        var stop = L.DomEvent.stopPropagation;
+        var fakeStop = L.DomEvent._fakeStop || stop;
+        L.DomEvent
+            .off(content, 'contextmenu', stop)
+            .off(content, 'click', fakeStop)
+            .off(content, 'mousedown', stop)
+            .off(content, 'touchstart', stop)
+            .off(content, 'dblclick', fakeStop)
+            .off(content, 'mousewheel', stop)
+            .off(content, 'MozMousePixelScroll', stop);
+
+        L.DomEvent
+            .off(container, 'transitionend',
+                this._handleTransitionEvent, this)
+            .off(container, 'webkitTransitionEnd',
+                this._handleTransitionEvent, this);
+
+        if (this._closeButton && this._close) {
+            var close = this._closeButton;
+
+            L.DomEvent.off(close, 'click', this.hide, this);
+        }
+
+        return this;
+    },
+
+    isVisible: function () {
+        return L.DomUtil.hasClass(this._container, 'visible');
+    },
+
+    show: function () {
+        if (!this.isVisible()) {
+            L.DomUtil.addClass(this._container, 'visible');
+            if (this.options.autoPan) {
+                this._map.panBy([-this.getOffset() / 2, 0], {
+                    duration: 0.5
+                });
+            }
+            this.fire('show');
+        }
+    },
+
+    hide: function (e) {
+        if (this.isVisible()) {
+            L.DomUtil.removeClass(this._container, 'visible');
+            if (this.options.autoPan) {
+                this._map.panBy([this.getOffset() / 2, 0], {
+                    duration: 0.5
+                });
+            }
+
+            if (this._queryMapMarker)
+            {
+                this._map.removeLayer(this._queryMapMarker);
+            }
+
+            this.fire('hide');
+        }
+        if(e) {
+            L.DomEvent.stopPropagation(e);
+        }
+    },
+
+    toggle: function () {
+        if (this.isVisible()) {
+            this.hide();
+        } else {
+            this.show();
+        }
+    },
+
+    getContainer: function () {
+        return this._contentContainer;
+    },
+
+    getCloseButton: function () {
+        return this._closeButton;
+    },
+
+    setContent: function (content) {
+        this.getContainer().innerHTML = content;
+        return this;
+    },
+
+    getOffset: function () {
+        if (this.options.position === 'right') {
+            return -this._container.offsetWidth;
+        } else {
+            return this._container.offsetWidth;
+        }
+    },
+
+    _handleTransitionEvent: function (e) {
+        if (e.propertyName == 'left' || e.propertyName == 'right')
+            this.fire(this.isVisible() ? 'shown' : 'hidden');
+    },
+	
+	_runQuery: function(e) {
+		// e.latlng
+	    // L.Control.Measure is enabled and running. so don't run the query - just exit.
+	    if ($('.js-measuretasks').is(':visible')) {
+	        return true;
+	    }
+        // if the redliner has a current tool that is active, do not run the query - just exit.
+	    if (L.Redliner.Tools.currentTool != "")
+	        return true;
+
+	    // -- remove map marker if it's already on the map
+	    if (this._queryMapMarker)
+	        this._map.removeLayer(this._queryMapMarker);
+
+	    
+
+	    this._queryMapMarker = L.marker(e.latlng);
+	    this._queryMapMarker.addTo(this._map);
+	    this._map.panTo(e.latlng);
+
+	    var html = "";
+
+	    html += '<div id="BienHoaSideBarContents"><center><p style="padding-top: 20px;">';
+	    html += '<div id="BienHoaSideBarContents-Header">Querying the map. Hold on...</a></div>';
+
+	    var allLayers = this._map._HatTOC._allLayers._layers;
+	    for (layerKey in allLayers) {
+	        var layer = allLayers[layerKey];
+	        if (this._map.hasLayer(layer))
+	        {
+	            // if layer is visible
+	            if (layer instanceof L.TileLayer.WMS)
+	            {
+	                html += this._queryWms(layerKey, layer, e); 
+	            }
+	        } // if visible
+	        
+	    } // for
+	    
+
+	    html += '</p></center></div>';
+	    
+	    
+	    
+		this.setContent(html);
+		this.show();
+	},
+
+	_allLayersQueryWmsFinished: function(){
+	    // alert('all loaded');
+	    var someResultReturned = false;
+	    $(".HatIdentifySideBarLayerContents").each(function () { 
+	        var numTblRws = $(this).find('tr').length;
+	        if (numTblRws > 0)
+	            someResultReturned = true;
+	    });
+
+	    if (!someResultReturned)
+	        $('#BienHoaSideBarContents-Header').html('<div class="alert alert-warning" role="alert">No results were found. Please try clicking somewhere else.</div>');
+	    else
+	        $('#BienHoaSideBarContents-Header').html('<strong>Map query results:</strong>');
+	},
+
+	_queryWms: function (layerKey, wmsLayer, e)
+    {
+	    var resultsDivId = "HatIdentifySideBarContents" + layerKey;
+	    
+	    // query WMS: https://gist.github.com/rclark/6908938
+	    var latlng = e.latlng;
+	    
+	    var FeatureInfoUrl = this._getWMSFeatureInfoUrl(e.latlng, wmsLayer);
+
+	    $.ajax({
+	        url: FeatureInfoUrl,
+            context: this,
+	        success: function (data, status, xhr) {
+	            var err = typeof data === 'string' ? null : data;
+	            if (err) { console.log(err); return; } // do nothing if there's an error
+	            $('#' + resultsDivId).removeClass("loading");
+	            
+	            
+	            $('#' + resultsDivId).html(data);
+
+	            var numLoading = $(".HatIdentifySideBarLayerContents.loading").length;
+	            if (numLoading < 1)
+	                this._allLayersQueryWmsFinished();
+	        },
+	        error: function (xhr, status, error) {
+	            console.log(error);
+	            $('#' + resultsDivId).removeClass("loading");
+	            $('#' + resultsDivId).html("Error: " + error);
+	            var numLoading = $(".HatIdentifySideBarLayerContents.loading").length;
+	            if (numLoading < 1)
+	                this._allLayersQueryWmsFinished();
+	        }
+	    });
+
+	    var html = '<div class="HatIdentifySideBarLayerContents loading" id="' + resultsDivId + '"><center><img src="' + this.options.spinnerImageUrl + '"></center></div>';
+	    return html;
+	},
+	_getWMSFeatureInfoUrl: function (latlng, wmsLayer) {
+	    var point = this._map.latLngToContainerPoint(latlng, this._map.getZoom()),
+            size = this._map.getSize(),
+	        bounds = this._map.getBounds();
+
+	    var wmsParams = wmsLayer.wmsParams;
+
+	    var infoParams = {
+	        'request': 'GetFeatureInfo',
+	        'query_layers': wmsLayer.wmsParams.layers,
+	        'X': Math.round(point.x),
+	        'Y': Math.round(point.y),
+	        'info_format': 'text/html',
+	        's': this._getSubdomain(point, wmsLayer),
+	        'width': size.x,
+	        'height': size.y,
+            'useCors': true
+	    };
+
+	    var wmsVersion = parseFloat(wmsLayer.wmsParams.version);
+	    var crs = this._map.options.crs;
+	    var nw = crs.project(bounds.getNorthWest());
+	    var se = crs.project(bounds.getSouthEast());
+
+	    infoParams.bbox = (
+            wmsVersion >= 1.3 && crs === L.CRS.EPSG4326 ?
+            [se.y, nw.x, nw.y, se.x] :
+            [nw.x, se.y, se.x, nw.y]
+        ).join(',');
+
+	    var params = L.extend({}, wmsParams, infoParams);
+
+	    var ret = L.Util.template(wmsLayer._url, params) + L.Util.getParamString(params, wmsLayer._url);
+	    console.log(ret);
+	    return ret;
+	},
+
+	_getWMSFeatureInfoUrlNotWorking: function (latlng, wmsLayer) {
+	    // Construct a GetFeatureInfo request URL given a point
+	    // source: https://gist.github.com/rclark/6908938
+
+        
+	    var point = this._map.latLngToContainerPoint(latlng, this._map.getZoom()),
+            size = this._map.getSize(),
+
+            params = {
+                request: 'GetFeatureInfo',
+                service: 'WMS',
+                srs: 'EPSG:4326',
+                /*
+                styles: wmsLayer.wmsParams.styles,
+                transparent: wmsLayer.wmsParams.transparent,
+                version: wmsLayer.wmsParams.version,
+                format: wmsLayer.wmsParams.format,
+                bbox: wmsLayer._map.getBounds().toBBoxString(),
+                */
+                height: size.y,
+                width: size.x,
+                // layers: wmsLayer.wmsParams.layers,
+                query_layers: wmsLayer.wmsParams.layers,
+                info_format: 'text/html',
+                s: this._getSubdomain(point, wmsLayer)
+            };
+
+	    params[params.version === '1.3.0' ? 'i' : 'x'] = point.x;
+	    params[params.version === '1.3.0' ? 'j' : 'y'] = point.y;
+
+	    params = L.extend({}, wmsLayer.wmsParams, params);
+
+	    return L.Util.template(wmsLayer._url, params) + L.Util.getParamString(params, wmsLayer._url);
+        
+	    // source: https://github.com/heigeo/leaflet.wms/blob/gh-pages/src/leaflet.wms.js
+	    /*
+        var point = this._map.latLngToContainerPoint(latlng, this._map.getZoom()),
+            size = this._map.getSize();
+	    var infoParams = {
+	        'request': 'GetFeatureInfo',
+	        'query_layers': wmsLayer.wmsParams.layers,
+	        'X': Math.round(point.x),
+	        'Y': Math.round(point.y),
+	        s: this._getSubdomain(point, wmsLayer)
+	    };
+        
+	    var params = L.extend({}, wmsLayer.wmsParams, infoParams);
+	    return L.Util.template(wmsLayer._url, params) + L.Util.getParamString(params, wmsLayer._url);
+        */
+	},
+
+	_getSubdomain: function (tilePoint, wmsLayer) {
+	    var index = Math.abs(tilePoint.x + tilePoint.y) % wmsLayer.options.subdomains.length;
+	    return wmsLayer.options.subdomains[index];
+	},
+
+
+	_renderPropertiesTable: function(obj)
+	{
+	    var f = obj;
+	    popupHtml = '<table class="table table-condensed table-bordered " border="1" cellpadding="2" cellspacing="2">';
+	    for (var key in f) {
+	        var keyUpper = key.toUpperCase();
+	        var keyVal = f[key];
+
+	        var isTEQDisplay = false;
+	        if (keyUpper.indexOf("Total_TEQ_".toUpperCase()) == 0 || keyUpper == "Max_TEQ".toUpperCase()
+                || keyUpper == "TEQLimit".toUpperCase() || keyUpper == "Exceeds".toUpperCase() || keyUpper == "DU_Id".toUpperCase()
+                || keyUpper == "Sample_Type".toUpperCase())
+	            isTEQDisplay = true;
+
+	        if (isTEQDisplay == false && keyVal != 'NoData' && keyVal != 'Null' && key != 'GEOMETRY' && keyUpper != 'SHAPE' && keyVal != null
+                && keyUpper != 'SHAPE_Length'.toUpperCase() && keyUpper != 'OBJECTID' && keyUpper != 'JoinField'.toUpperCase() && keyUpper != 'fid'.toUpperCase()
+                && keyUpper != 'Phase'.toUpperCase()) {
+	            var key_display = key;
+	            var val_display = f[key];
+
+	            if (key_display.toUpperCase() == "SHAPE_Area".toUpperCase()) {
+	                key_display = "Area (m<sup>2</sup>)";
+	                // remove decimals
+	                var parts = val_display.toString().split(".");
+	                val_display = Number(parts[0]).toLocaleString() + " m<sup>2</sup>";
+	            }
+
+	            key_display = key_display.replace(/_/g, " ");
+
+	            popupHtml += '<tr><td>' + key_display + '</td><td>' + val_display + '</td></tr>'
+	        }
+	    } // for
+	    popupHtml += "</table>";
+
+	    
+
+	    return popupHtml;
+	},
+
+
+});
+
+L.control.hatidentifysidebar = function (placeholder, options) {
+    return new L.Control.hatIdentifySidebar(placeholder, options);
+};

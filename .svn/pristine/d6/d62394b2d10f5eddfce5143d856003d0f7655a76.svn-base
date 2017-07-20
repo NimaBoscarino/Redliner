@@ -1,0 +1,20 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+
+namespace Hatfield.WebMap.ViewModels.BienHoaData
+{
+    public class BienHoaDUReport
+    {
+        public Domain.BienHoaData.v_DU_levels DU;
+        public IQueryable<Domain.BienHoaData.v_subDU_levels> SubDUs;
+        public IQueryable<Domain.BienHoaData.PHASE2_FISH> FishSamplesInDU;
+        public IQueryable<Domain.BienHoaData.PHASE2_WATER> WaterSamplesInDU;
+
+        public string PointReportLayerIds = string.Empty;
+        public string ImageDisplay = string.Empty;
+        public string MapExtent = string.Empty;
+        public Newtonsoft.Json.Linq.JObject PointReportJson = null;
+    }
+}

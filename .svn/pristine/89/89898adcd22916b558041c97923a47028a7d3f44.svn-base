@@ -1,0 +1,7 @@
+﻿<div class="row">
+    
+    <div class="col-md-8 appTitle" style="text-align: center">@Html.Raw(ViewBag.site.DisplayTitle)
+    <br />Strictly for Hatfield Staff Use Only.
+    </div>        
+    <div class="col-md-3"><a href="http://www.hatfieldgroup.com" target="_blank"><img src="@Url.Content("~/images/HatfieldConsultants_HLogo_RGB_2006NOV16_new_300.jpg")" /></a></div>
+</div>

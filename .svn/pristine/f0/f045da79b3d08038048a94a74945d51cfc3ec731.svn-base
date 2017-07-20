@@ -1,0 +1,107 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+
+namespace Hatfield.WebMap.Domain.Layers
+{
+    public class ESRITiledMapLayerMapLayer : IMapLayer
+    {
+        public string DisplayName { get; set; }
+        public string urlFormat { get; set; }
+        public bool detectRetina { get; set; }        
+        public double opacity { get; set; }
+        public bool useCors { get; set; }
+        public List<string> subdomains { get; set; }
+        public LatLngBounds bounds { get; set; }
+        public int maxNativeZoom { get; set; }
+        public int maxZoom { get; set; }
+        public bool InitiallyVisible { get; set; }
+        public bool Queryable{ get { return false; } } // always false
+        
+        public bool RequiresAuthentication { get; set; }
+
+        public string Url
+        {
+            get 
+                { 
+                    if(urlFormat.IndexOf("{s}", StringComparison.CurrentCultureIgnoreCase) >= 0)
+                    {
+                        if (subdomains.Count == 0)
+                            throw new ArgumentException("You need to specify subdomains if {s} is in the urlFormat");
+
+                        return urlFormat.Replace("{s}", subdomains[0]);
+                    }
+                    else
+                    {
+                        return urlFormat;
+                    }
+                }
+        }
+
+        public string getJavascriptCreateStatement(string jsVarNameToCreate, WebMappingSite site)
+        {
+            System.Text.StringBuilder ret = new System.Text.StringBuilder();
+            List<string> quotedSubDomains = new List<string>();
+            if (subdomains != null && subdomains.Count > 0)
+            {
+                foreach (var sub in subdomains)
+                {
+                    if (!string.IsNullOrWhiteSpace(sub))
+                    {
+                        quotedSubDomains.Add("'" + sub + "'");
+                    }
+                }
+            }
+
+            ret.AppendLine("var " + jsVarNameToCreate + " = L.esri.tiledMapLayer({");
+            ret.AppendLine("    url: '" + urlFormat + "',");
+            ret.AppendLine("    detectRetina: " + detectRetina.ToString().ToLower() + ",");            
+            ret.AppendLine("    opacity: " + opacity.ToString() + ",");
+            ret.AppendLine("    useCors: " + useCors.ToString().ToLower() + ",");
+            if (quotedSubDomains.Count > 0)
+            {
+                ret.AppendLine("    subdomains: [" + String.Join(",", quotedSubDomains) + "],");
+            }
+            if (bounds != null)
+            {
+                ret.AppendLine("    bounds: L.latLngBounds(L.latLng(" + bounds.SouthWest.Latitude + "," + bounds.SouthWest.Longitude + "), L.latLng(" + bounds.NorthEast.Latitude + "," + bounds.NorthEast.Longitude + ")),");
+            }
+            ret.AppendLine("    maxNativeZoom: 20,");
+            ret.AppendLine("    maxZoom: 20");
+            ret.AppendLine("});");
+
+            if (RequiresAuthentication)
+            {
+                ret.AppendLine(jsVarNameToCreate + ".on('tileerror',function(error, tile){ console.log('tileerror');  console.log(error);  console.log(tile);})");
+
+                // get the login URL. source: https://msdn.microsoft.com/en-us/library/cc668176(v=vs.140).aspx
+                var loginRoute = site.GetLoginPageRoute();
+
+                var vpd = System.Web.Routing.RouteTable.Routes.GetVirtualPath(null, loginRoute);
+                string loginUrl = vpd.VirtualPath;
+
+                ret.AppendLine(jsVarNameToCreate + ".on('authenticationrequired',function(e){ console.log('authenticationrequired');  console.log(e); window.location.href = \"" + loginUrl + "\"; })");
+                
+            }
+
+            return ret.ToString();
+        }
+
+
+        public string getAuthToken(Domain.TokenMode mode)
+        {
+            return Controllers.HomeController.getArcGISToken(mode);
+        }
+
+
+
+
+
+
+
+
+
+        
+    }
+}

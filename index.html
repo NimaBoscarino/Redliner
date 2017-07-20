@@ -1,0 +1,47 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Redliner</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"/> <!--320-->
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.0.3/dist/leaflet.css" />
+    <!-- Compiled and minified CSS -->
+    <link href="styles/redliner.css" rel="stylesheet" />
+    <link href="styles/panelManager.css" rel="stylesheet" />
+</head>
+<body>
+    <div id="map"></div>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/leaflet@1.0.3/dist/leaflet.js"
+    integrity="sha512-A7vV8IFfih/D732iSSKi20u/ooOfj/AGehOKq0f4vLT1Zr2Y+RX7C+w8A1gaSasGtRUZpF/NZgzSAu4/Gc41Lg=="
+    crossorigin=""></script>    
+    <script src="panelManager.js"></script>
+    <script src="redliner.js"></script>
+    <script>
+        var bounds = new L.LatLngBounds(new L.LatLng(-85, -200), new L.LatLng(85, 250));
+        var map = L.map('map', {
+            attributionControl: false,
+            maxBounds: bounds,
+            maxBoundsViscosity: 0.4,
+        }).setView([49.2827, -123.1207], 13);
+        // disable double click to zoom
+        map.doubleClickZoom.disable();
+        map.options.minZoom = 3;
+        // NOTE: do not use stamen without API key for production
+        var Stamen_Toner = L.tileLayer('http://stamen-tiles-{s}.a.ssl.fastly.net/toner-lite/{z}/{x}/{y}.{ext}', {
+            attribution: 'Map tiles by <a href="http://stamen.com">Stamen Design</a>, <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a> &mdash; Map data &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            subdomains: 'abcd',
+            minZoom: 0,
+            maxZoom: 20,
+            ext: 'png'
+        }).addTo(map);
+        
+        var redliner = new L.control.redliner().addTo(map); 
+        
+        redliner.newComment()
+        redliner.setTool('move')
+
+    </script>
+</body>
+</html>

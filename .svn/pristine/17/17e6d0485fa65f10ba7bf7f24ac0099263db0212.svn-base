@@ -1,0 +1,440 @@
+/*
+ * L.Control.Layers is a control to allow users to switch between different layers on the map.
+ * TOC control: http://gmaps-utility-gis.googlecode.com/svn/tags/agsjs/latest/examples/toc.html
+ */
+
+L.Control.HatTOC = L.Control.extend({
+    options: {                
+        position: 'topright',
+        autoZIndex: true,
+        title: 'Legend:',
+        treeAjaxUrl: null,
+        hashLayers: null,
+        view: null
+    },
+
+    initialize: function (allLayers, options) {
+        L.setOptions(this, options);
+        if (!this.options.treeAjaxUrl)
+        {
+            throw "L.Control.HatTOC requires the 'treeAjaxUrl' option to be set.";
+        }
+
+        this._selectedEsriLayerIds = [];
+        this._allLayers = allLayers; // includes both hidden and showing layers
+        
+        this._lastZIndex = 0;
+        this._handlingClick = false;
+        this._fullScreen = false; // assume we are not full screen right now
+
+        // set zIndex for layers
+        this._allLayers.eachLayer(function (l) {
+            if (this.options.autoZIndex && l.setZIndex) {
+                this._lastZIndex++;
+                l.setZIndex(this._lastZIndex);
+            }
+        }, this);
+
+
+
+
+    },
+    getSelectedEsriLayerIds: function()
+    {
+        return this._selectedEsriLayerIds;
+    },
+
+
+    onAdd: function (map) {
+        this._initLayout();
+
+        map.on('fullscreenchange', this._ChangeHeightToFitMap, this);
+        map.on('resize', this._ChangeHeightToFitMap, this);
+        map.on('zoomstart', this._UpdateOnZoom, this);
+        this._ChangeHeightToFitMap();
+        
+        
+        return this._container;
+    },
+
+    onRemove: function (map) {
+        map.off('fullscreenchange', this._ChangeHeightToFitMap, this);        
+    },
+
+
+    _initLayout: function () {
+        var className = 'leaflet-control-toc',
+		    container = this._container = L.DomUtil.create('div', className+"  leaflet-control-layers");
+
+        L.DomEvent.disableClickPropagation(container); // don't propagate click events to the map.
+        L.DomEvent.disableScrollPropagation(container); // don't propagate scroll events to the map.				
+
+        //Makes this work on IE10 Touch devices by stopping it from firing a mouseout event when the touch is released
+        container.setAttribute('aria-haspopup', true);
+
+        container.setAttribute('style', "width: " + this.options.width);
+
+        var title = L.DomUtil.create('div', className + '-title');
+        title.innerHTML = this.options.title;
+        container.appendChild(title);
+
+        var treeDiv = L.DomUtil.create('div', className + '-tree');
+        var acitreeDiv = L.DomUtil.create('div', 'aciTree');
+        acitreeDiv.id = "acitree-hattoc";
+        acitreeDiv.innerHTML = '<center id="HatTocInitialLoadingSpinner"><img src="' + this.options.spinnerImageUrl + '"></center>';
+        treeDiv.appendChild(acitreeDiv);
+
+        container.appendChild(treeDiv);
+        
+        var url = this.options.treeAjaxUrl;
+        
+        var hashLayers = "";
+        if (location.hash.split('/')[3]) {
+            hashLayers = location.hash.split('/')[3];
+        }
+        if (hashLayers != null) {
+            url = url + '?hashLayers=' + hashLayers;
+        }
+        
+        // console.log(url);
+
+        var aciTreeOptions = {
+            ajax: {
+                url: url
+            },
+            checkbox: true,
+            radio: true,
+            unique: false, /* if TRUE then when a node is opened all other nodes are closed; */
+            multiSelectable: true,
+            /* note: all chaining should be off (no default propagation) as our handling is custom in the treeEvent */
+            checkboxChain: false, /* when FALSE the change of the selection state will not be propagated to the parent/children nodes, if it's equal with -1 then only the parent nodes will be updated, if it's equal with 1 then only the children nodes will be updated; */
+            radioChain: false, /* when FALSE the change of the selection state will not be propagated to the parent/children nodes; */
+            radioBreak: false,
+        }; 
+
+        var aciTree = this._aciTree = $(acitreeDiv).aciTree(aciTreeOptions);
+        aciTree.HatTOC = this;
+        // listen for the events
+        var instance = this;
+        $(treeDiv).on('acitree', $.proxy(this._aciTreeEvent, this)); // give the event handler the "this" context: http://stackoverflow.com/a/5490477/691965
+
+
+        
+    },
+    _aciAreAnyRadiosAtTheSameLevelChecked: function (api, levelToCheck, childArr) {
+        for (var i = 0; i < childArr.length; i++) {
+            var cItem = api.itemFrom(childArr[i]);
+            var level = api.level(cItem);
+            if (level == levelToCheck && api.hasRadio(cItem) && api.isChecked(cItem))
+                return true;
+        } // for
+        return false;
+    },
+    _aciTreeEvent: function (event, api, item, eventName, options)
+    {
+        if (eventName == "loaded" || eventName == "loadfail") {
+            $("#HatTocInitialLoadingSpinner").hide();
+        }
+        if (eventName == 'checked' && !this._handlingClick)
+        {
+            this._handlingClick = true; // we only want to propagate the first clicked node up and down - nowhere else, so let's lock onto that.
+            /* always propagate the checked state to parent nodes */            
+            var pathArr = api.path(item, false);
+            for (var i = 0; i < pathArr.length; i++) {
+                var parItem = api.itemFrom(pathArr[i]);                
+                if (!api.isChecked(parItem))
+                    api.check(parItem);                
+            }
+            /* propagate the checked state to child nodes */            
+            var childArr = api.children(item, true, true); // returns all children (recursive), and includes hidden nodes
+            for (var i = 0; i < childArr.length; i++) {
+                var cItem = api.itemFrom(childArr[i]);
+                var level = api.level(cItem);                
+
+                // -- only check one item per-radio level
+                if (api.hasRadio(cItem) && !this._aciAreAnyRadiosAtTheSameLevelChecked(api, level, childArr))
+                {
+                    api.check(cItem);                    
+                }
+                else if (api.hasCheckbox(cItem) && !api.isChecked(cItem))
+                {
+                    // -- check all child checkboxes
+                    api.check(cItem);
+                }
+            }
+
+            // -- if this is a radio item, uncheck all other siblings
+            if (api.hasRadio(item))
+            {
+                var siblings = api.siblings(item, true); // include hidden siblings
+                for (var i = 0; i < siblings.length; i++) {
+                    var sibItem = api.itemFrom(siblings[i]);
+                    if (api.hasRadio(sibItem) && api.isChecked(sibItem))
+                    {
+                        api.uncheck(sibItem);
+                    }
+                }
+            }
+
+            this._handlingClick = false; // done
+        }
+        if (eventName == 'unchecked' && !this._handlingClick) {
+            // if this is a checkbox (not a radio) and all siblings are unchecked, then uncheck the parent
+            if (api.hasCheckbox(item)) {
+                this._handlingClick = true;
+                var pathArr = api.path(item, true); /* must be in reverse order to work */
+
+                for (var i = 0; i < pathArr.length; i++) {
+                    var parItem = api.itemFrom(pathArr[i]);
+                    if (api.hasCheckbox(parItem) || api.hasRadio(parItem)) {
+                        
+                        var children = api.children(parItem, false, true); // include hidden siblings at one level deep
+                        // -- if this item has no children, it's safe to uncheck it
+                        if (children == null || children.length == 0) {
+                            api.uncheck(parItem);
+                        }
+                        else {
+                            // check if any of the children are checked. if any children is checked, stop. if all children are unchecked, it's safe to uncheck this one as well
+                            var allChildrenUnchecked = true;
+                            for (var j = 0; j < children.length; j++)
+                            {
+                                var childItem = api.itemFrom(children[j]);
+                                if (api.hasCheckbox(childItem) && api.isChecked(childItem))
+                                {
+                                    allChildrenUnchecked = false;
+                                    break;
+                                }
+                            }
+                            if (allChildrenUnchecked) {
+                                api.uncheck(parItem);
+                            }
+                            else
+                                break;
+                        } // hasSiblings
+                    } // if has checkbox
+                } // for each parent
+
+
+
+                this._handlingClick = false;
+            }
+        }
+
+        if (eventName == 'checked' || eventName == 'unchecked') {
+            // do something when a item is checked or unchecked
+            
+            this._updateMapLayerDisplay(api);
+            /*
+            alert('You just selected the item with the ID: ' + api.getId(item) + '\n' +
+                'also the custom property [_maplayerindex] equals: ' + itemData['_maplayerindex']);*/
+
+            // Fire an event so leaflet-hash can update the hash
+            window.map.fire("update-layer-hash");
+
+
+        }
+        else if (eventName == 'loaded') {
+            this._acitree_allData_loaded(event, api, item, eventName, options);
+        }
+    },
+    
+    _acitree_allData_loaded: function (event, api, item, eventName, options)
+    {
+        // note: "this" is set to a jQuery element, not this plugin instance.
+        //       to get the plugin instance use data.instance.HatTOC               
+        this._ChangeHeightToFitMap();
+        this._updateMapLayerDisplay(api);
+
+        window.map.fire("tree-data-loaded");
+    },
+    _areItemAndAllParentsChecked: function(api, item, itemData)
+    {
+     
+        if (itemData._isGroupNode)
+            return false; // don't include group nodes in the display
+
+
+        if (!api.isChecked(item))
+            return false;
+
+        var pathArr = api.path(item, false);
+        for(var i=0; i < pathArr.length; i++)
+        {
+            var parItem = api.itemFrom(pathArr[i]);
+            if (!api.isChecked(parItem))
+                return false;
+        }
+        return true;
+    },
+
+      _updateMapLayerDisplay: function (api) {
+        if (!this._container) {
+            return;
+        }
+        if (!api)
+            throw "Error: the _updateMapLayerDisplay needs to be passed an aciTree api object!";
+        
+        var selEsriLayerIds = {};
+        var treeLIs = $(".aciTreeLi", this._container);
+        var enabledTreeLIs = api.enabled(treeLIs);
+        
+        for (var i = 0; i < enabledTreeLIs.length; i++) {
+            var selNode = enabledTreeLIs[i];
+            var item = api.itemFrom(selNode);
+            var itemData = api.itemData(item);
+
+            if (this._areItemAndAllParentsChecked(api, item, itemData)) {
+
+                if (itemData._esrilayerid != null && typeof itemData._esrilayerid != 'undefined') {
+                    var maplayerindex = itemData._maplayerindex;
+                    var esriLayerId = itemData._esrilayerid;
+                    if (selEsriLayerIds[maplayerindex] == null)
+                        selEsriLayerIds[maplayerindex] = [];
+
+                    selEsriLayerIds[maplayerindex].push(esriLayerId);
+                }
+                else if (itemData._maplayerindex != null && typeof itemData._maplayerindex != 'undefined') {
+                    var maplayerindex = itemData._maplayerindex;
+                    selEsriLayerIds[maplayerindex] = [];
+                }
+            }
+        }
+        this._selectedEsriLayerIds = selEsriLayerIds;
+
+        var lindex = 0;
+        for (var leafletLid in this._allLayers._layers) {
+            if (typeof this._allLayers._layers[leafletLid].setLayers != 'undefined') {
+                var arr = selEsriLayerIds[lindex];
+                if (arr == null)
+                    arr = [-1]; // arcgis takes an empty array to be "display default layers". In this case we want to display nothing!
+
+                this._allLayers._layers[leafletLid].setLayers(arr);
+                
+            } // if MapService
+            else
+            {
+                // show/hide leaflet layers
+                if (selEsriLayerIds[lindex]) // checked
+                {
+                    this._map.addLayer(this._allLayers._layers[leafletLid]);
+                }
+                else
+                {
+                    // unchecked
+                    this._map.removeLayer(this._allLayers._layers[leafletLid]);
+                }
+            }
+            lindex++;
+        } // for each layer
+
+              
+      },
+
+      setLayersCheckedByLayerIds: function(layerIdArr)
+      {
+          // console.log('hatToc setLayersCheckedByLayerIds' + layerIdArr);
+          //uncheck all
+          var api = $('.aciTree').aciTree('api');
+          var treeLIs = $(".aciTreeLi", this._container);
+          var checkedTreeLis = api.checkboxes(treeLIs, true);
+          for (var i = 0; i < checkedTreeLis.length; i++) {
+              var selNode = checkedTreeLis[i];
+              var item = api.itemFrom(selNode);
+              api.uncheck(item);
+          }
+          //@@
+          // check the specified nodes
+          var treeLIsWithCheckboxes = api.checkboxes(treeLIs); // note: no second parameter
+          for (var i = 0; i < treeLIsWithCheckboxes.length; i++) {
+              var selNode = treeLIsWithCheckboxes[i];
+              var item = api.itemFrom(selNode);
+              var itemData = api.itemData(item);
+              var itemLayerId = itemData['_maplayerindex'];
+
+              layerIdArr.forEach(function (layer) {
+                  var ilyaerId = parseInt(layer);
+                  if (ilyaerId == itemLayerId)
+                      api.check(item);
+              });
+              
+          }
+                    
+      },
+
+      getTreeNodeByEsriLayerId: function(queryLayer, esriLayerId)
+      {
+          if (!this._aciTree)
+              return null;
+          var ret = null;
+          
+          var api = $("#acitree-hattoc").aciTree('api');
+          var treeLIs = $(".aciTreeLi", this._container);
+          var enabledTreeLIs = api.enabled(treeLIs);
+
+          var lindex = 0;
+          for (var leafletLid in this._allLayers._layers) {
+              if (queryLayer._leaflet_id == leafletLid) {
+                  var nodeIdToFind = "node" + lindex + "-" + esriLayerId;
+                  for(var i=0; i< enabledTreeLIs.length; i++)
+                  {
+                      var selNode = enabledTreeLIs[i];
+                      var item = api.itemFrom(selNode);
+                      var itemId = api.getId(item);
+                      if (itemId == nodeIdToFind) {
+                          return {item: item, itemData:  api.itemData(item), api: api};
+                      }
+                      
+                  }
+              }
+
+              lindex++;
+          }
+          return ret;
+      },
+
+      _ChangeHeightToFitMap: function ()
+      {
+          // I'm shorting this right now, will deal with height with css - Nima
+          return
+          // console.log("full screen changed " + $(this._map._container).height());
+          var containerHeight = $(this._map._container).height() - 100 - $(this._container).position().top;
+          $(this._container).height(containerHeight);
+          var titleHeight = $(".leaflet-control-toc-title").height();
+
+          var tocTreeHeight = containerHeight - titleHeight;
+          // console.log("Fit TOC. container="+containerHeight+"; tocTree="+tocTreeHeight);
+          $(".leaflet-control-toc-tree").height(tocTreeHeight);
+          
+      },
+
+      _UpdateOnZoom: function(e)
+      {
+          if (!this._map) return;
+          
+          // 1:Scale = Reworld width / Map width 
+          var dpm = 96 * 39.37007874016; // (96 dpi * 39.37 ); 96dpi is found in map service; 1dot/inch = 39.37007874016 dot/meter: http://www.translatorscafe.com/cafe/EN/units-converter/digital-image-resolution/1-3/dot%2Fmeter-dot%2Finch/
+          
+
+          var zoomLevel = this._map.getZoom();          
+
+          var bounds = this._map.getBounds(),
+                      centerLat = bounds.getCenter().lat,
+                      halfWorldMeters = 6378137 * Math.PI * Math.cos(centerLat * Math.PI / 180),
+                      dist = halfWorldMeters * (bounds.getNorthEast().lng - bounds.getSouthWest().lng) / 180,
+
+                      size = this._map.getSize(),
+                      options = this.options,
+                      maxMeters = 0;
+
+          if (size.x > 0) {
+              var scaleDenom = (dist / size.x) * dpm;
+              console.log("zoom level=" + zoomLevel + "; scaleDenom:" + scaleDenom);
+          }
+      }
+
+      
+});
+
+L.control.hattoc = function (baseLayers, overlays, options) {
+    return new L.Control.HatTOC(baseLayers, overlays, options);
+};
