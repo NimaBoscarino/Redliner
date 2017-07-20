@@ -547,6 +547,9 @@ L.Control.Redliner = L.Control.extend({
                 },
                 terminate: function(resolve) {
                     self.enableMapControls()
+                    // if tool is switched or panel is closed without saving the text note, it is deleted.
+                    self.state.currentMarker.removeFrom(self._map)
+                    self.state.currentMarker.deleted = true
                     self.stopTextMode(resolve)
                 }
             },            
