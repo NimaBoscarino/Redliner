@@ -14,7 +14,6 @@ L.Control.Redliner = L.Control.extend({
             self._map.tap.enable();
         }
     },
-
     disableMapControls: function() {
         var self = this
         self._map.zoomControl.disable();
@@ -28,9 +27,32 @@ L.Control.Redliner = L.Control.extend({
             self._map.tap.disable();
         }                    
     },
+    startDrawingMode: function(addListeners) {
+        // spawn a canvas
+        this.state.drawingCanvas = L.canvas({ padding: 0 })
+        this.state.drawingCanvas.addTo(this._map)
+        // add listeners to canvas
+        addListeners(this.state.drawingCanvas._container)
+    },
+    stopDrawingMode: function() {
+        // save image from canvas...
+
+        
+        // augment old image...
+
+        // remove and destroy drawingCanvas
+        this.state.drawingCanvas.removeFrom(this._map)
+        this.state.drawingCanvas = null
+    },
     initialize: function (options) {
         var self = this
         L.setOptions(this, options)
+        this.toolListeners = {
+            redPenDown: function() {
+                self.state.stroke = true
+                console.log('REEEEE')
+            }
+        }
         this.tools = [
             {
                 name: 'move',
@@ -45,6 +67,10 @@ L.Control.Redliner = L.Control.extend({
                 name: 'redpen',
                 init: function() {
                     self.disableMapControls()
+                    self.startDrawingMode(function(canvas) {
+                        // add listeners to canvas
+                        canvas.addEventListener('mousedown', self.toolListeners.redPenDown);          
+                    })                  
                 },
                 terminate: function() {
                     self.enableMapControls()
@@ -52,7 +78,8 @@ L.Control.Redliner = L.Control.extend({
             }
         ];
         this.state = {
-            currentTool: null
+            currentTool: null,
+            comment: null
         }
     },
     onAdd: function (map) {
@@ -60,10 +87,14 @@ L.Control.Redliner = L.Control.extend({
         return container
     },
     newComment: function() {
-        console.log('starting new comment')
-    },
-    listTools: function() {
-        console.log(this.tools)
+        this.state.comment = {
+            name: 'Comment',
+            drawing: {
+                dataUrl: null,
+                latitude: null,
+                longitude: null
+            }
+        }
     },
     setTool: function(toolName) {
         this.state.currentTool ? this.state.currentTool.terminate() : null

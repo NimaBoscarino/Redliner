@@ -38,7 +38,8 @@ L.Control.HatPanelRedliner = L.Control.extend({
     },
 
     _panelToggleOpenCloseClick : function(){
-        console.log('comment panel is closing. Check to make sure map is in move mode.');
+        redliner.newComment()
+        redliner.setTool('move')
     },
 
     _setActiveTool: function(toolConstant){
@@ -234,35 +235,36 @@ L.Control.HatPanelRedliner = L.Control.extend({
     },
 
     _moveMapButtonClick: function () {
-        if (this.__RedlinerCommentIntitialized && this.__currentRedlinerComment != null)
-        {
-            this.redliner.saveDrawing(this.__currentRedlinerComment, { textSave: false }); //
-            this.__currentRedlinerComment.addTo(this._map);
-            this._map.setView(this.__currentRedlinerComment.coords, this.__currentRedlinerComment.initialZoom);
-        }
+        // if (this.__RedlinerCommentIntitialized && this.__currentRedlinerComment != null)
+        // {
+        //     this.redliner.saveDrawing(this.__currentRedlinerComment, { textSave: false }); //
+        //     this.__currentRedlinerComment.addTo(this._map);
+        //     this._map.setView(this.__currentRedlinerComment.coords, this.__currentRedlinerComment.initialZoom);
+        // }
 
         this._styleToolAsSelected(this.MoveMapButton, this.MoveMapRadio);
+        redliner.setTool('move')
 
-        // enable map interaction
-        this._map.zoomControl.enable();
-        this._map.dragging.enable();
-        this._map.touchZoom.enable();
-        this._map.doubleClickZoom.enable();
-        this._map.scrollWheelZoom.enable();
-        this._map.boxZoom.enable();
-        this._map.keyboard.enable();
-        if (this._map.tap) {
-            this._map.tap.enable();
-        }
-        if (this.redliner.Tools.currentTool != '') {
-            // this.redliner.Tools.off();
-        }
+        // // enable map interaction
+        // this._map.zoomControl.enable();
+        // this._map.dragging.enable();
+        // this._map.touchZoom.enable();
+        // this._map.doubleClickZoom.enable();
+        // this._map.scrollWheelZoom.enable();
+        // this._map.boxZoom.enable();
+        // this._map.keyboard.enable();
+        // if (this._map.tap) {
+        //     this._map.tap.enable();
+        // }
+        // if (this.redliner.Tools.currentTool != '') {
+        //     // this.redliner.Tools.off();
+        // }
     },
     _addTextButtonClick: function () {
         this._styleToolAsSelected(this.AddTextButton, this.AddTextRadio);
-        this._disableMapInteractions();
-        this._setupCurrentRedlinerComment();
-        this.redliner.Tools.setCurrentTool('text');
+        // this._disableMapInteractions();
+        // this._setupCurrentRedlinerComment();
+        // this.redliner.Tools.setCurrentTool('text');
     },
     _eraserButtonClick: function () {
         this._styleToolAsSelected(this.EraserButton, this.EraserRadio);
@@ -272,11 +274,12 @@ L.Control.HatPanelRedliner = L.Control.extend({
     },
     _drawRedButtonClick: function () {
         this._styleToolAsSelected(this.DrawRedButton, this.DrawRedRadio);
-        this._disableMapInteractions();
-        this._setupCurrentRedlinerComment();
-        this.redliner.Tools.setCurrentTool('pen', {
-            colour: 'red'
-        });
+        // this._disableMapInteractions();
+        // this._setupCurrentRedlinerComment();
+        // this.redliner.Tools.setCurrentTool('pen', {
+        //     colour: 'red'
+        // });
+        redliner.setTool('redpen')
     },
     _drawYellowButtonClick: function () {
         this._styleToolAsSelected(this.DrawYellowButton, this.DrawYellowRadio);

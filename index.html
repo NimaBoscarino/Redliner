@@ -5,9 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"/> <!--320-->
     <meta charset="UTF-8">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.0.3/dist/leaflet.css" />
-    <!-- Compiled and minified CSS -->
+	<link rel="stylesheet" href="leaflet.hatPanel/L.hatPanel.css" />
     <link href="styles/redliner.css" rel="stylesheet" />
-    <link href="styles/panelManager.css" rel="stylesheet" />
 </head>
 <body>
     <div id="map"></div>
@@ -16,8 +15,9 @@
     <script src="https://unpkg.com/leaflet@1.0.3/dist/leaflet.js"
     integrity="sha512-A7vV8IFfih/D732iSSKi20u/ooOfj/AGehOKq0f4vLT1Zr2Y+RX7C+w8A1gaSasGtRUZpF/NZgzSAu4/Gc41Lg=="
     crossorigin=""></script>    
-    <script src="panelManager.js"></script>
+    <script src="leaflet.hatPanel/L.hatPanel.js"></script>
     <script src="redliner.js"></script>
+    <script src="Leaflet.hatPanelRedliner.js"></script>
     <script>
         var bounds = new L.LatLngBounds(new L.LatLng(-85, -200), new L.LatLng(85, 250));
         var map = L.map('map', {
@@ -38,9 +38,12 @@
         }).addTo(map);
         
         var redliner = new L.control.redliner().addTo(map); 
-        
-        redliner.newComment()
-        redliner.setTool('move')
+
+        var panelComments = new L.Control.hatPanel({title: 'Comment Tool', autoPan: false, initializeOpen: false, position: 'bottomleft' }).addTo(map);
+        var redlinerUI = new L.Control.HatPanelRedliner({ redliner: redliner});
+
+        // hatZedPanTo.addTo(map);
+        panelComments.addControl(redlinerUI);
 
     </script>
 </body>
