@@ -3,7 +3,7 @@
 **Leaflet Redliner** (new edition)
 ----------------
 
-Redliner is an application that allows the user to create markups on a Leaflet map.
+Redliner is a web application that allows the user to create markups on a Leaflet map.
 
 ### Features: 
 * Mark a location or area 
